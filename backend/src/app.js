@@ -9,7 +9,7 @@ const app = express();
 
 const origins = (process.env.CORS_ORIGINS || '')
   .split(',')
-  .map((s) => s.trim())
+  .map((s) => s.trim().replace(/\/$/, ''))
   .filter(Boolean);
 
 app.use(
