@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { fetchPhotos } from '../api';
-import { socket } from '../socket';
 
 function fmtDate(iso) {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -14,18 +13,15 @@ export default function FieldPhotos({ projectId, accessKey }) {
 
   useEffect(() => {
     if (!projectId || !accessKey) return;
-    const load = () => {
-      fetchPhotos(projectId, accessKey)
-        .then(setPhotos)
-        .catch(() => setPhotos([]));
-    };
-
-    load();
-
-    socket.on('project-update', load);
-    return () => {
-      socket.off('project-update', load);
-    };
+    fetchPhotos(projectId, accessKey)
+      .then((p) => {
+        // Latest first, only entries that have an image.
+        const sorted = [...p]
+          .filter((x) => x.image)
+          .sort((a, b) => new Date(b.date) - new Date(a.date) || new Date(b.createdAt) - new Date(a.createdAt));
+        setPhotos(sorted);
+      })
+      .catch(() => setPhotos([]));
   }, [projectId, accessKey]);
 
   if (!photos) {
@@ -37,18 +33,16 @@ export default function FieldPhotos({ projectId, accessKey }) {
     );
   }
 
-  const withImages = photos.filter((p) => p.image);
-
   return (
     <div className="panel">
-      <div className="panel-title">Field Photos ({withImages.length})</div>
+      <div className="panel-title">Field Photos ({photos.length})</div>
 
-      {!withImages.length && (
+      {!photos.length && (
         <p className="muted" style={{ fontSize: 14 }}>No field photos uploaded yet.</p>
       )}
 
       <div className="photo-grid">
-        {withImages.map((p) => (
+        {photos.map((p) => (
           <div key={p._id} className="photo-thumb" onClick={() => setExpanded(p)}>
             <img src={p.image} alt={`${p.type} tower ${p.towerNo}`} />
             <div className="photo-meta">
@@ -60,7 +54,6 @@ export default function FieldPhotos({ projectId, accessKey }) {
         ))}
       </div>
 
-      {/* Lightbox */}
       {expanded && (
         <div className="lightbox" onClick={() => setExpanded(null)}>
           <div className="lightbox-inner" onClick={(e) => e.stopPropagation()}>

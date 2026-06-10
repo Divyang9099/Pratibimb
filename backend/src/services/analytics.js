@@ -40,17 +40,32 @@ export async function buildDashboard(projectId) {
     .sort({ date: -1 })
     .lean();
 
-  // ---- Daily activity (capture today / upload today per day) ----
+  // ---- Daily activity (capture / upload per day, with tower range) ----
   const dailyMap = new Map();
-  const bump = (dateVal, field) => {
+  const bump = (dateVal, field, towerNum) => {
     if (!dateVal) return;
     const k = dayKey(dateVal);
-    if (!dailyMap.has(k)) dailyMap.set(k, { date: k, captured: 0, uploaded: 0 });
-    dailyMap.get(k)[field] += 1;
+    if (!dailyMap.has(k)) dailyMap.set(k, { date: k, captured: 0, uploaded: 0, towerMin: Infinity, towerMax: -Infinity });
+    const entry = dailyMap.get(k);
+    entry[field] += 1;
+    const n = parseInt(towerNum, 10);
+    if (!isNaN(n)) {
+      if (n < entry.towerMin) entry.towerMin = n;
+      if (n > entry.towerMax) entry.towerMax = n;
+    }
   };
-  captured.forEach((t) => bump(t.capturedAt, 'captured'));
-  uploaded.forEach((t) => bump(t.uploadedAt, 'uploaded'));
-  const dailyActivity = [...dailyMap.values()].sort((a, b) => a.date.localeCompare(b.date));
+  captured.forEach((t) => bump(t.capturedAt, 'captured', t.number));
+  uploaded.forEach((t) => bump(t.uploadedAt, 'uploaded', t.number));
+
+  const dailyActivity = [...dailyMap.values()]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((d) => ({
+      ...d,
+      // Human-readable label: tower range worked that day, e.g. "T5–T25"
+      towerLabel: d.towerMin !== Infinity
+        ? d.towerMin === d.towerMax ? `T${d.towerMin}` : `T${d.towerMin}–T${d.towerMax}`
+        : d.date,
+    }));
 
   // ---- Cumulative communication chart (capture solid vs upload dashed) ----
   let cumCap = 0;
@@ -58,7 +73,7 @@ export async function buildDashboard(projectId) {
   const communication = dailyActivity.map((d) => {
     cumCap += d.captured;
     cumUp += d.uploaded;
-    return { date: d.date, capture: cumCap, upload: cumUp };
+    return { date: d.date, towerLabel: d.towerLabel, capture: cumCap, upload: cumUp };
   });
 
   // ---- Prediction box ----

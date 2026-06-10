@@ -4,20 +4,19 @@ import { warmBackend } from './components/WarmUp.jsx';
 import KeyGate from './components/KeyGate.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import DashboardSkeleton from './components/DashboardSkeleton.jsx';
-import { socket } from './socket';
 
-// Kick off a silent background ping so the free Render server wakes up
-// while the client is typing their access key.
+// Silent background ping so the Render free-tier server wakes up while the
+// client is reading the page and typing their key.
 warmBackend();
 
 export default function App() {
-  const [session, setSession] = useState(null); // { client, projects, key }
+  const [session, setSession] = useState(null);
   const [projectId, setProjectId] = useState('');
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Restore key + project on first load.
+  // Restore saved key on first load.
   useEffect(() => {
     const saved = keyStore.get();
     if (saved) handleKey(saved, true);
@@ -30,7 +29,6 @@ export default function App() {
       const data = await accessWithKey(key);
       keyStore.set(key);
       setSession({ ...data, key });
-      // Restore last viewed project if still in the list.
       const savedProject = pageStore.getProject();
       const match = data.projects.find((p) => p.id === savedProject);
       if (match) setProjectId(match.id);
@@ -41,53 +39,34 @@ export default function App() {
     }
   }
 
-  // Connect/disconnect socket based on session.
-  useEffect(() => {
-    if (!session) {
-      socket.disconnect();
-      return;
-    }
-    socket.connect();
-    return () => {
-      socket.disconnect();
-    };
-  }, [session]);
-
-  // Reload dashboard whenever project changes; listen for socket updates to instantly refresh.
+  // Reload dashboard on project change; auto-refresh every 30s.
+  // Background refresh failures (e.g. server sleeping) are silently ignored
+  // so the existing dashboard stays visible without an error banner.
   useEffect(() => {
     if (!session || !projectId) return;
     pageStore.setProject(projectId);
     let active = true;
+    let isFirstLoad = true;
+
     const load = async () => {
-      setLoading(true);
+      if (isFirstLoad) setLoading(true);
       try {
         const data = await fetchDashboard(projectId, session.key);
-        if (active) setDashboard(data);
+        if (active) { setDashboard(data); setError(''); }
       } catch (e) {
-        if (active) setError(e.response?.data?.error || 'Failed to load dashboard');
+        // Only surface the error on the very first load; silent on background refresh.
+        if (active && isFirstLoad) {
+          setError(e.response?.data?.error || 'Failed to load dashboard');
+        }
       } finally {
         if (active) setLoading(false);
+        isFirstLoad = false;
       }
     };
+
     load();
-
-    socket.emit('join-project', projectId);
-
-    const handleUpdate = (data) => {
-      if (data.projectId === projectId) {
-        load();
-      }
-    };
-
-    socket.on('project-update', handleUpdate);
-
     const t = setInterval(load, 30000);
-    return () => {
-      active = false;
-      clearInterval(t);
-      socket.off('project-update', handleUpdate);
-      socket.emit('leave-project', projectId);
-    };
+    return () => { active = false; clearInterval(t); };
   }, [session, projectId]);
 
   function logout() {
@@ -103,7 +82,7 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <span className="logo">◢</span> प्रतिविम्ब:
+          <span className="logo">◢</span> प्रतिविम्ब
           <span className="muted"> · Client</span>
         </div>
         <div className="topbar-right">
@@ -111,20 +90,14 @@ export default function App() {
           <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
             <option value="">Select project…</option>
             {session.projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
+              <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
-          <button className="ghost" onClick={logout}>
-            Exit
-          </button>
+          <button className="ghost" onClick={logout}>Exit</button>
         </div>
       </header>
 
-      {!projectId && (
-        <div className="empty">Choose a project above to view its progress.</div>
-      )}
+      {!projectId && <div className="empty">Choose a project above to view its progress.</div>}
       {error && <div className="error-banner">{error}</div>}
       {projectId && loading && !dashboard && <DashboardSkeleton />}
       {projectId && dashboard && (

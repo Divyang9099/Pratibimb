@@ -43,7 +43,7 @@ export default function KpiCards({ kpi }) {
       </div>
 
       <div className="kpi-card">
-        <div className="kpi-label">Acquisition Update</div>
+        <div className="kpi-label">Current Acquisition Update</div>
         <div className="acq-row">
           <span className="acq-tag start">Start</span>
           <span>{fmtDate(acquisition.start?.date)} (AM)</span>

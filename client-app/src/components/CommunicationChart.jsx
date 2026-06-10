@@ -9,20 +9,27 @@ import {
   Legend,
 } from 'recharts';
 
-const short = (d) => d.slice(5);
-
-// Cumulative capture vs upload over time. Capture is a solid line,
-// upload is a dashed line — the gap shows the upload backlog.
+// Cumulative capture vs upload over time.
+// X-axis shows the tower range worked each day (e.g. "T5–T25").
 export default function CommunicationChart({ data }) {
   return (
     <div className="panel">
       <div className="panel-title">Capture vs Upload (cumulative)</div>
       <ResponsiveContainer width="100%" height={240}>
-        <LineChart data={data.map((d) => ({ ...d, label: short(d.date) }))}>
+        <LineChart data={data} margin={{ bottom: 8 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
-          <XAxis dataKey="label" fontSize={11} />
+          <XAxis
+            dataKey="towerLabel"
+            fontSize={11}
+            interval="preserveStartEnd"
+            tick={{ angle: -35, textAnchor: 'end', dy: 4 }}
+            height={48}
+          />
           <YAxis allowDecimals={false} fontSize={11} />
-          <Tooltip />
+          <Tooltip
+            formatter={(val, name) => [val, name]}
+            labelFormatter={(label) => `Towers: ${label}`}
+          />
           <Legend />
           <Line
             type="monotone"
