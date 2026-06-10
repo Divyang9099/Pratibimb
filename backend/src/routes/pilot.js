@@ -1,0 +1,173 @@
+import { Router } from 'express';
+import Project from '../models/Project.js';
+import Tower from '../models/Tower.js';
+import DailyLog from '../models/DailyLog.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
+import { uploadImage } from '../services/cloudinary.js';
+
+const router = Router();
+router.use(requireAuth, requireRole('pilot'));
+
+// Helper: return today's start and end logs for this pilot + project.
+async function getTodayLogs(projectId, pilotId) {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return DailyLog.find({
+    project: projectId,
+    pilot: pilotId,
+    date: { $gte: start, $lt: end },
+  })
+    .sort({ createdAt: 1 })
+    .lean();
+}
+
+// Projects the pilot can log against.
+router.get('/projects', async (req, res) => {
+  const projects = await Project.find({ active: true })
+    .select('name totalTowers client')
+    .sort({ createdAt: -1 })
+    .lean();
+  res.json({ projects });
+});
+
+// Today's start/end status for a project — used by the frontend to drive
+// the lifecycle: shows warnings, prevents double-start, etc.
+router.get('/today-status/:projectId', async (req, res) => {
+  const logs = await getTodayLogs(req.params.projectId, req.user._id);
+  const startLog = logs.find((l) => l.type === 'start') || null;
+  const endLog = logs.find((l) => l.type === 'end') || null;
+  res.json({ started: !!startLog, ended: !!endLog, startLog, endLog });
+});
+
+// "Start Day" — morning open. Rejects if already started today.
+router.post('/start-day', async (req, res) => {
+  const { projectId, date, towerNo, image, note } = req.body || {};
+  if (!projectId || !towerNo) {
+    return res.status(400).json({ error: 'projectId and towerNo are required' });
+  }
+
+  const logs = await getTodayLogs(projectId, req.user._id);
+  if (logs.find((l) => l.type === 'start')) {
+    return res.status(409).json({ error: 'Day already started. End today\'s session before starting a new one.' });
+  }
+
+  const imageUrl = await uploadImage(image || '');
+  const log = await DailyLog.create({
+    project: projectId,
+    pilot: req.user._id,
+    type: 'start',
+    date: date ? new Date(date) : new Date(),
+    towerNo: String(towerNo),
+    image: imageUrl,
+    note,
+  });
+  res.status(201).json({ log });
+});
+
+// "End Day" — evening close. Requires a start to exist; rejects if already ended.
+router.post('/end-day', async (req, res) => {
+  const { projectId, date, towerNo, image, note } = req.body || {};
+  if (!projectId || !towerNo) {
+    return res.status(400).json({ error: 'projectId and towerNo are required' });
+  }
+
+  const logs = await getTodayLogs(projectId, req.user._id);
+  if (!logs.find((l) => l.type === 'start')) {
+    return res.status(400).json({ error: 'You must start your day first before ending it.' });
+  }
+  if (logs.find((l) => l.type === 'end')) {
+    return res.status(409).json({ error: 'Day already ended. Only one end-day entry per day is allowed.' });
+  }
+
+  const imageUrl = await uploadImage(image || '');
+  const log = await DailyLog.create({
+    project: projectId,
+    pilot: req.user._id,
+    type: 'end',
+    date: date ? new Date(date) : new Date(),
+    towerNo: String(towerNo),
+    image: imageUrl,
+    note,
+  });
+  res.status(201).json({ log });
+});
+
+// Tower range for the data-update table.
+// Returns each row with `alreadyCaptured` / `alreadyUploaded` flags so the
+// frontend can highlight towers that were previously recorded.
+router.get('/towers/:projectId', async (req, res) => {
+  const { projectId } = req.params;
+  const from = parseInt(req.query.from, 10);
+  const to = parseInt(req.query.to, 10);
+  if (Number.isNaN(from) || Number.isNaN(to) || from > to) {
+    return res.status(400).json({ error: 'Provide a valid from <= to range' });
+  }
+  if (to - from > 1000) {
+    return res.status(400).json({ error: 'Range too large (max 1000 towers)' });
+  }
+
+  const existing = await Tower.find({
+    project: projectId,
+    number: { $in: Array.from({ length: to - from + 1 }, (_, i) => String(from + i)) },
+  }).lean();
+  const byNumber = new Map(existing.map((t) => [t.number, t]));
+
+  const rows = [];
+  for (let n = from; n <= to; n += 1) {
+    const t = byNumber.get(String(n));
+    rows.push({
+      number: String(n),
+      dataCapture: t?.captured || false,
+      dataUpload: t?.uploaded || false,
+      issueReplace: t?.issueReplace || false,
+      // These flags tell the UI which towers were already recorded before
+      // this session so it can highlight them as warnings.
+      alreadyCaptured: t?.captured || false,
+      alreadyUploaded: t?.uploaded || false,
+    });
+  }
+  res.json({ rows });
+});
+
+// Save the data-update table — drives all client KPIs and map colours.
+router.post('/data-update', async (req, res) => {
+  const { projectId, date, rows } = req.body || {};
+  if (!projectId || !Array.isArray(rows)) {
+    return res.status(400).json({ error: 'projectId and rows[] are required' });
+  }
+  const when = date ? new Date(date) : new Date();
+
+  const ops = rows.map((row) => {
+    const set = {
+      captured: !!row.dataCapture,
+      uploaded: !!row.dataUpload,
+      issueReplace: !!row.issueReplace,
+    };
+    if (row.dataCapture) {
+      set.capturedAt = when;
+      set.capturedBy = req.user._id;
+    } else {
+      set.capturedAt = null;
+    }
+    if (row.dataUpload) {
+      set.uploadedAt = when;
+      set.uploadedBy = req.user._id;
+    } else {
+      set.uploadedAt = null;
+    }
+    return {
+      updateOne: {
+        filter: { project: projectId, number: String(row.number) },
+        update: { $set: set },
+        upsert: true,
+      },
+    };
+  });
+
+  if (ops.length) await Tower.bulkWrite(ops);
+  res.json({ updated: ops.length });
+});
+
+export default router;
