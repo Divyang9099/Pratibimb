@@ -14,7 +14,32 @@ const origins = (process.env.CORS_ORIGINS || '')
 
 app.use(
   cors({
-    origin: origins.length ? origins : true, // allow listed frontends (or all in dev)
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, postman)
+      if (!origin) return callback(null, true);
+
+      // Check if origin matches allowed origins list
+      if (origins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      // Automatically allow all Vercel deployment URLs and localhost
+      const isLocalhost = /^https?:\/\/localhost(:\d+)?$/.test(origin);
+      const isVercel = /\.vercel\.app$/.test(origin);
+
+      if (isLocalhost || isVercel) {
+        return callback(null, true);
+      }
+
+      // If origins array is empty, default to allowing all in development/staging
+      if (origins.length === 0) {
+        return callback(null, true);
+      }
+
+      // Reject otherwise
+      callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
   })
 );
 // Field reference images can be base64 data URIs, so allow a large body.
