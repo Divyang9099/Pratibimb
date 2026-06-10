@@ -12,9 +12,13 @@ async function clientFromKey(key) {
   return Client.findOne({ accessKey: String(key).trim().toUpperCase(), active: true });
 }
 
+const asyncHandler = (fn) => (req, res, next) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
+
 // Step 1: client enters their access key -> we return the client name and
 // the list of projects they're allowed to view.
-router.post('/access', async (req, res) => {
+router.post('/access', asyncHandler(async (req, res) => {
   const client = await clientFromKey(req.body?.key);
   if (!client) return res.status(401).json({ error: 'Invalid or inactive access key' });
 
@@ -32,11 +36,11 @@ router.post('/access', async (req, res) => {
       startDate: p.startDate,
     })),
   });
-});
+}));
 
 // Step 2: client selects a project -> full dashboard payload.
 // Key is required again so the link can't be shared without the key.
-router.get('/dashboard/:projectId', async (req, res) => {
+router.get('/dashboard/:projectId', asyncHandler(async (req, res) => {
   const client = await clientFromKey(req.query.key);
   if (!client) return res.status(401).json({ error: 'Invalid or inactive access key' });
 
@@ -45,11 +49,11 @@ router.get('/dashboard/:projectId', async (req, res) => {
 
   const data = await buildDashboard(project._id);
   res.json(data);
-});
+}));
 
 // Return field log photos for a project (start/end day images with metadata).
 // Client can see all daily photo evidence for their project.
-router.get('/photos/:projectId', async (req, res) => {
+router.get('/photos/:projectId', asyncHandler(async (req, res) => {
   const client = await clientFromKey(req.query.key);
   if (!client) return res.status(401).json({ error: 'Invalid or inactive access key' });
 
@@ -63,6 +67,6 @@ router.get('/photos/:projectId', async (req, res) => {
     .lean();
 
   res.json({ photos });
-});
+}));
 
 export default router;
