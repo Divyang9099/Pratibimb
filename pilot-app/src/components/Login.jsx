@@ -1,31 +1,40 @@
 import { useState } from 'react';
 import { login } from '../api';
+import { withRetry } from './WarmUp.jsx';
 
 export default function Login({ onLogin }) {
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [connecting, setConnecting] = useState(false);
 
   async function submit(e) {
     e.preventDefault();
     setError('');
     setBusy(true);
+    setConnecting(false);
     try {
-      const user = await login(loginId.trim(), password);
+      const user = await withRetry(
+        () => login(loginId.trim(), password),
+        () => setConnecting(true), // show "Connecting…" on first retry
+      );
       onLogin(user);
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed');
+      setConnecting(false);
+      setError(err.response?.data?.error || 'Login failed. Please try again.');
     } finally {
       setBusy(false);
     }
   }
 
+  const buttonLabel = connecting ? 'Connecting…' : busy ? 'Signing in…' : 'Sign in';
+
   return (
     <div className="gate">
       <form className="gate-card" onSubmit={submit}>
         <div className="brand big">
-          <span className="logo">◢</span> Pilot Login
+          <img src="/favicon.png" className="logo-img" alt="logo" /> Pilot Login
         </div>
         <label>Pilot ID</label>
         <input autoFocus value={loginId} onChange={(e) => setLoginId(e.target.value)} placeholder="pilot1" />
@@ -37,9 +46,10 @@ export default function Login({ onLogin }) {
           placeholder="••••••"
         />
         {error && <div className="error">{error}</div>}
-        <button disabled={busy} type="submit">
-          {busy ? 'Signing in…' : 'Sign in'}
-        </button>
+        <button disabled={busy} type="submit">{buttonLabel}</button>
+        {connecting && (
+          <p className="hint">Server is warming up — retrying automatically…</p>
+        )}
       </form>
     </div>
   );

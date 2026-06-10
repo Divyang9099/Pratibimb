@@ -1,13 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { auth, pageStore } from './api';
+import { warmBackend } from './components/WarmUp.jsx';
 import Login from './components/Login.jsx';
 import Clients from './components/Clients.jsx';
 import Pilots from './components/Pilots.jsx';
 import Projects from './components/Projects.jsx';
-import WarmUp from './components/WarmUp.jsx';
+
+// Kick off a silent background ping so the free Render server wakes up
+// before the admin submits their credentials.
+warmBackend();
 
 export default function App() {
-  const [ready, setReady] = useState(false);
   const [user, setUser] = useState(auth.user());
   const [section, setSection] = useState(pageStore.getSection);
 
@@ -21,7 +24,6 @@ export default function App() {
     pageStore.setSection(s);
   }
 
-  if (!ready) return <WarmUp onReady={() => setReady(true)} />;
   if (!user) return <Login onLogin={setUser} />;
 
   const nav = [
