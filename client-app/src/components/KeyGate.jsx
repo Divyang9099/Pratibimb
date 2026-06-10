@@ -9,7 +9,7 @@ export default function KeyGate({ onSubmit, error }) {
     <div className="gate">
       <div className="gate-card">
         <div className="brand big">
-          <span className="logo">◢</span> Tower Tracker
+          <span className="logo">◢</span> प्रतिविम्ब
         </div>
         <p className="muted">Powerline inspection — client access</p>
         <form

@@ -4,8 +4,10 @@ import Login from './components/Login.jsx';
 import Clients from './components/Clients.jsx';
 import Pilots from './components/Pilots.jsx';
 import Projects from './components/Projects.jsx';
+import WarmUp from './components/WarmUp.jsx';
 
 export default function App() {
+  const [ready, setReady] = useState(false);
   const [user, setUser] = useState(auth.user());
   const [section, setSection] = useState(pageStore.getSection);
 
@@ -19,6 +21,7 @@ export default function App() {
     pageStore.setSection(s);
   }
 
+  if (!ready) return <WarmUp onReady={() => setReady(true)} />;
   if (!user) return <Login onLogin={setUser} />;
 
   const nav = [
@@ -31,7 +34,7 @@ export default function App() {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <span className="logo">◢</span> Admin
+          <span className="logo">◢</span> प्रतिविम्ब <span className="muted">· Admin</span>
         </div>
         <nav>
           {nav.map((n) => (
@@ -44,9 +47,7 @@ export default function App() {
             </button>
           ))}
         </nav>
-        <button className="logout" onClick={logout}>
-          Logout
-        </button>
+        <button className="logout" onClick={logout}>Logout</button>
       </aside>
 
       <main className="main">

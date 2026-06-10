@@ -3,8 +3,10 @@ import { api, auth, pageStore } from './api';
 import Login from './components/Login.jsx';
 import StartEndDay from './components/StartEndDay.jsx';
 import DataUpdate from './components/DataUpdate.jsx';
+import WarmUp from './components/WarmUp.jsx';
 
 export default function App() {
+  const [ready, setReady] = useState(false);
   const [user, setUser] = useState(auth.user());
   const [tab, setTab] = useState(pageStore.getTab);
   const [projects, setProjects] = useState([]);
@@ -34,6 +36,7 @@ export default function App() {
     pageStore.setProject(id);
   }
 
+  if (!ready) return <WarmUp onReady={() => setReady(true)} />;
   if (!user) return <Login onLogin={setUser} />;
 
   const tabs = [
@@ -48,13 +51,11 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <span className="logo">◢</span> Tower Tracker <span className="muted">· Pilot</span>
+          <span className="logo">◢</span> प्रतिविम्ब <span className="muted">· Pilot</span>
         </div>
         <div className="topbar-right">
           <span className="who">{user.name}</span>
-          <button className="ghost" onClick={logout}>
-            Logout
-          </button>
+          <button className="ghost" onClick={logout}>Logout</button>
         </div>
       </header>
 
