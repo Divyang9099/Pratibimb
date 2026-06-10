@@ -7,6 +7,7 @@ import DailyLog from '../models/DailyLog.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { buildDashboard } from '../services/analytics.js';
 import { parseKml } from '../services/kml.js';
+import { notifyProjectUpdate } from '../services/socket.js';
 
 const router = Router();
 router.use(requireAuth, requireRole('admin'));
@@ -178,6 +179,7 @@ router.put('/projects/:id', async (req, res) => {
   // Re-apply coordinates whenever the KML is (re)uploaded.
   if (kml) await applyKml(project._id, kml);
 
+  notifyProjectUpdate(project._id);
   res.json({ project });
 });
 
@@ -188,6 +190,7 @@ router.post('/projects/:id/sync-kml', async (req, res) => {
   if (!project.kml) return res.status(400).json({ error: 'Project has no KML to sync' });
 
   const result = await applyKml(project._id, project.kml);
+  notifyProjectUpdate(project._id);
   res.json(result);
 });
 
@@ -215,6 +218,7 @@ router.post('/projects/:id/reset-data', async (req, res) => {
     }
   );
   await DailyLog.deleteMany({ project: req.params.id });
+  notifyProjectUpdate(req.params.id);
   res.json({ ok: true });
 });
 
@@ -247,6 +251,7 @@ router.put('/towers/:projectId/:number', async (req, res) => {
     { $set: set },
     { new: true, upsert: true }
   );
+  notifyProjectUpdate(req.params.projectId);
   res.json({ tower });
 });
 

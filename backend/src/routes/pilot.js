@@ -4,6 +4,7 @@ import Tower from '../models/Tower.js';
 import DailyLog from '../models/DailyLog.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { uploadImage } from '../services/cloudinary.js';
+import { notifyProjectUpdate } from '../services/socket.js';
 
 const router = Router();
 router.use(requireAuth, requireRole('pilot'));
@@ -68,6 +69,7 @@ router.post('/start-day', async (req, res) => {
     image: imageUrl,
     note,
   });
+  notifyProjectUpdate(projectId);
   res.status(201).json({ log });
 });
 
@@ -96,6 +98,7 @@ router.post('/end-day', async (req, res) => {
     image: imageUrl,
     note,
   });
+  notifyProjectUpdate(projectId);
   res.status(201).json({ log });
 });
 
@@ -172,6 +175,7 @@ router.post('/data-update', async (req, res) => {
   });
 
   if (ops.length) await Tower.bulkWrite(ops);
+  notifyProjectUpdate(projectId);
   res.json({ updated: ops.length });
 });
 

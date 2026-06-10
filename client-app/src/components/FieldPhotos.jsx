@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchPhotos } from '../api';
+import { socket } from '../socket';
 
 function fmtDate(iso) {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -13,9 +14,18 @@ export default function FieldPhotos({ projectId, accessKey }) {
 
   useEffect(() => {
     if (!projectId || !accessKey) return;
-    fetchPhotos(projectId, accessKey)
-      .then(setPhotos)
-      .catch(() => setPhotos([]));
+    const load = () => {
+      fetchPhotos(projectId, accessKey)
+        .then(setPhotos)
+        .catch(() => setPhotos([]));
+    };
+
+    load();
+
+    socket.on('project-update', load);
+    return () => {
+      socket.off('project-update', load);
+    };
   }, [projectId, accessKey]);
 
   if (!photos) {

@@ -4,6 +4,7 @@ import { warmBackend } from './components/WarmUp.jsx';
 import KeyGate from './components/KeyGate.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import DashboardSkeleton from './components/DashboardSkeleton.jsx';
+import { socket } from './socket';
 
 // Kick off a silent background ping so the free Render server wakes up
 // while the client is typing their access key.
@@ -40,7 +41,19 @@ export default function App() {
     }
   }
 
-  // Reload dashboard whenever project changes; auto-refresh every 30s.
+  // Connect/disconnect socket based on session.
+  useEffect(() => {
+    if (!session) {
+      socket.disconnect();
+      return;
+    }
+    socket.connect();
+    return () => {
+      socket.disconnect();
+    };
+  }, [session]);
+
+  // Reload dashboard whenever project changes; listen for socket updates to instantly refresh.
   useEffect(() => {
     if (!session || !projectId) return;
     pageStore.setProject(projectId);
@@ -57,8 +70,24 @@ export default function App() {
       }
     };
     load();
+
+    socket.emit('join-project', projectId);
+
+    const handleUpdate = (data) => {
+      if (data.projectId === projectId) {
+        load();
+      }
+    };
+
+    socket.on('project-update', handleUpdate);
+
     const t = setInterval(load, 30000);
-    return () => { active = false; clearInterval(t); };
+    return () => {
+      active = false;
+      clearInterval(t);
+      socket.off('project-update', handleUpdate);
+      socket.emit('leave-project', projectId);
+    };
   }, [session, projectId]);
 
   function logout() {

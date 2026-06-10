@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
+import { socket } from '../socket';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -37,12 +38,32 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
   // Re-check status whenever the project or date changes.
   useEffect(() => {
     if (!projectId) { setStatus(null); return; }
-    setStatusLoading(true);
-    api
-      .get(`/pilot/today-status/${projectId}`, { params: { date } })
-      .then((r) => setStatus(r.data))
-      .catch(() => setStatus(null))
-      .finally(() => setStatusLoading(false));
+    
+    const load = () => {
+      setStatusLoading(true);
+      api
+        .get(`/pilot/today-status/${projectId}`, { params: { date } })
+        .then((r) => setStatus(r.data))
+        .catch(() => setStatus(null))
+        .finally(() => setStatusLoading(false));
+    };
+
+    load();
+
+    socket.emit('join-project', projectId);
+
+    const handleUpdate = (data) => {
+      if (data.projectId === projectId) {
+        load();
+      }
+    };
+
+    socket.on('project-update', handleUpdate);
+
+    return () => {
+      socket.off('project-update', handleUpdate);
+      socket.emit('leave-project', projectId);
+    };
   }, [projectId, date]);
 
   const logToDisplay = isStart ? status?.startLog : status?.endLog;

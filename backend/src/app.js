@@ -14,7 +14,7 @@ import adminRoutes from './routes/admin.js';
 
 const app = express();
 
-const origins = (process.env.CORS_ORIGINS || '')
+export const origins = (process.env.CORS_ORIGINS || '')
   .split(',')
   .map((s) => s.trim().replace(/\/$/, ''))
   .filter(Boolean);

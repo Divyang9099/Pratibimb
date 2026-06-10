@@ -1,6 +1,8 @@
 import 'dotenv/config';
 import mongoose from 'mongoose';
-import app from './app.js';
+import http from 'http';
+import app, { origins } from './app.js';
+import { initSocket } from './services/socket.js';
 
 const PORT = process.env.PORT || 5000;
 
@@ -16,7 +18,11 @@ async function start() {
   try {
     await mongoose.connect(process.env.MONGO_URI);
     console.log('✓ MongoDB connected');
-    app.listen(PORT, () => console.log(`✓ API listening on http://localhost:${PORT}`));
+
+    const server = http.createServer(app);
+    initSocket(server, origins);
+
+    server.listen(PORT, () => console.log(`✓ API listening on http://localhost:${PORT}`));
   } catch (err) {
     console.error('✗ Failed to start:', err.message);
     process.exit(1);

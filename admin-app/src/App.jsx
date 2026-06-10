@@ -5,6 +5,7 @@ import Login from './components/Login.jsx';
 import Clients from './components/Clients.jsx';
 import Pilots from './components/Pilots.jsx';
 import Projects from './components/Projects.jsx';
+import { socket } from './socket';
 
 // Kick off a silent background ping so the free Render server wakes up
 // before the admin submits their credentials.
@@ -13,6 +14,17 @@ warmBackend();
 export default function App() {
   const [user, setUser] = useState(auth.user());
   const [section, setSection] = useState(pageStore.getSection);
+
+  useEffect(() => {
+    if (!user) {
+      socket.disconnect();
+      return;
+    }
+    socket.connect();
+    return () => {
+      socket.disconnect();
+    };
+  }, [user]);
 
   function logout() {
     auth.clear();

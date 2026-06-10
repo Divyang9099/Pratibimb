@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
+import { socket } from '../socket';
 
 // Admin view of a single project: KPI summary + editable tower table +
 // field logs. Admin can toggle any tower's capture/upload/issue state.
@@ -21,6 +22,21 @@ export default function ProjectDetail({ projectId, onBack }) {
 
   useEffect(() => {
     loadAll();
+
+    socket.emit('join-project', projectId);
+
+    const handleUpdate = (data) => {
+      if (data.projectId === projectId) {
+        loadAll();
+      }
+    };
+
+    socket.on('project-update', handleUpdate);
+
+    return () => {
+      socket.off('project-update', handleUpdate);
+      socket.emit('leave-project', projectId);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 

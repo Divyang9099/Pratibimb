@@ -4,6 +4,7 @@ import { warmBackend } from './components/WarmUp.jsx';
 import Login from './components/Login.jsx';
 import StartEndDay from './components/StartEndDay.jsx';
 import DataUpdate from './components/DataUpdate.jsx';
+import { socket } from './socket';
 
 // Kick off a silent background ping so the free Render server wakes up
 // before the pilot submits their credentials.
@@ -14,6 +15,17 @@ export default function App() {
   const [tab, setTab] = useState(pageStore.getTab);
   const [projects, setProjects] = useState([]);
   const [projectId, setProjectId] = useState(pageStore.getProject);
+
+  useEffect(() => {
+    if (!user) {
+      socket.disconnect();
+      return;
+    }
+    socket.connect();
+    return () => {
+      socket.disconnect();
+    };
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
