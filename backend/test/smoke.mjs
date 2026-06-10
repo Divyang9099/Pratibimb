@@ -80,6 +80,12 @@ try {
   check('map towers carry status', dash.towers.some((t) => t.status === 'green') && dash.towers.some((t) => t.status === 'red'));
   check('prediction has daily avg', typeof dash.prediction.dailyCaptureAvg === 'number');
 
+  // Client photos
+  const photosRes = await get(`/client/photos/${project._id}?key=TWR-DEMO1234`);
+  check('photos fetch status is 200', photosRes.status === 200);
+  const photosData = await photosRes.json();
+  check('photos results is an array', Array.isArray(photosData.photos));
+
   // Pilot loads range + updates data
   const rows = await (await get(`/pilot/towers/${project._id}?from=5&to=8`, pilotLogin.token)).json();
   check('pilot range returns 4 rows', rows.rows?.length === 4);

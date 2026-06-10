@@ -1,5 +1,12 @@
 import express from 'express';
 import cors from 'cors';
+// Ensure all models are registered on boot to avoid MissingSchemaErrors in populate queries
+import './models/User.js';
+import './models/Client.js';
+import './models/Project.js';
+import './models/Tower.js';
+import './models/DailyLog.js';
+
 import authRoutes from './routes/auth.js';
 import clientRoutes from './routes/client.js';
 import pilotRoutes from './routes/pilot.js';
