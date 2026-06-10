@@ -34,16 +34,35 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
   const [status, setStatus] = useState(null); // { started, ended, startLog, endLog }
   const [statusLoading, setStatusLoading] = useState(false);
 
-  // Re-check status whenever the project changes.
+  // Re-check status whenever the project or date changes.
   useEffect(() => {
     if (!projectId) { setStatus(null); return; }
     setStatusLoading(true);
     api
-      .get(`/pilot/today-status/${projectId}`)
+      .get(`/pilot/today-status/${projectId}`, { params: { date } })
       .then((r) => setStatus(r.data))
       .catch(() => setStatus(null))
       .finally(() => setStatusLoading(false));
-  }, [projectId]);
+  }, [projectId, date]);
+
+  const logToDisplay = isStart ? status?.startLog : status?.endLog;
+  const isFrozen = isStart ? !!status?.started : !!status?.ended;
+
+  // Update state values when status updates to populate frozen form
+  useEffect(() => {
+    if (isFrozen && logToDisplay) {
+      if (logToDisplay.date) {
+        setDate(logToDisplay.date.slice(0, 10));
+      }
+      setTowerNo(logToDisplay.towerNo || '');
+      setImage(logToDisplay.image || '');
+      setNote(logToDisplay.note || '');
+    } else if (!isFrozen) {
+      setTowerNo('');
+      setImage('');
+      setNote('');
+    }
+  }, [status, isFrozen, isStart]);
 
   async function submit(e) {
     e.preventDefault();
@@ -71,7 +90,7 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
       setImage('');
       setNote('');
       // Refresh the status banner immediately after submit.
-      const r = await api.get(`/pilot/today-status/${projectId}`);
+      const r = await api.get(`/pilot/today-status/${projectId}`, { params: { date } });
       setStatus(r.data);
       // After ending the day, switch to the Data Update tab.
       if (!isStart) setTimeout(() => onDayEnded?.(), 1200);
@@ -86,8 +105,8 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
   const alreadyStarted = status?.started && isStart;
   const alreadyEnded   = status?.ended && !isStart;
   const notYetStarted  = !status?.started && !isStart;
-  // The form is blocked when we can't do anything meaningful.
-  const formBlocked = alreadyStarted || alreadyEnded || notYetStarted;
+  // The form is hidden only when they try to end the day before starting it.
+  const formHidden = notYetStarted;
 
   return (
     <div className="card">
@@ -113,7 +132,7 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
 
       {/* ---- Lifecycle status banners ---- */}
       {projectId && statusLoading && (
-        <div className="status-banner loading">Checking today&apos;s status…</div>
+        <div className="status-banner loading">Checking status…</div>
       )}
 
       {projectId && status && isStart && status.started && (
@@ -147,42 +166,49 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
       )}
 
       {/* ---- Entry form (hidden when blocked) ---- */}
-      {!formBlocked && (
+      {!formHidden && (
         <form className="form" onSubmit={submit} style={{ marginTop: 12 }}>
           <label>Date</label>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={isFrozen} />
 
           <label>{isStart ? 'Start tower no.' : 'Close tower no.'}</label>
           <input
             value={towerNo}
             onChange={(e) => setTowerNo(e.target.value)}
             placeholder="e.g. 23"
+            disabled={isFrozen}
           />
 
-          <label>Field image</label>
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={async (e) => {
-              const f = e.target.files?.[0];
-              if (f) setImage(await fileToDataUri(f));
-            }}
-          />
+          {!isFrozen && (
+            <>
+              <label>Field image</label>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  if (f) setImage(await fileToDataUri(f));
+                }}
+              />
+            </>
+          )}
           {image && <img className="preview" src={image} alt="preview" />}
 
           <label>Note (optional)</label>
-          <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} />
+          <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} disabled={isFrozen} />
 
           {msg && <div className={msg.type === 'ok' ? 'ok' : 'error'}>{msg.text}</div>}
-          <button disabled={busy} type="submit">
-            {busy ? 'Saving…' : isStart ? 'Start Day' : 'End Day'}
-          </button>
+          {!isFrozen && (
+            <button disabled={busy} type="submit">
+              {busy ? 'Saving…' : isStart ? 'Start Day' : 'End Day'}
+            </button>
+          )}
         </form>
       )}
 
       {/* Success message even when form is hidden */}
-      {formBlocked && msg?.type === 'ok' && <div className="ok" style={{ marginTop: 10 }}>{msg.text}</div>}
+      {formHidden && msg?.type === 'ok' && <div className="ok" style={{ marginTop: 10 }}>{msg.text}</div>}
     </div>
   );
 }

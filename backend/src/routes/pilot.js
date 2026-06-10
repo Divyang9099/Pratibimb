@@ -8,9 +8,14 @@ import { uploadImage } from '../services/cloudinary.js';
 const router = Router();
 router.use(requireAuth, requireRole('pilot'));
 
-// Helper: return today's start and end logs for this pilot + project.
-async function getTodayLogs(projectId, pilotId) {
-  const start = new Date();
+// Helper: return start and end logs for this pilot + project on a specific date.
+async function getTodayLogs(projectId, pilotId, dateStr) {
+  let start;
+  if (dateStr && !isNaN(new Date(dateStr).getTime())) {
+    start = new Date(dateStr);
+  } else {
+    start = new Date();
+  }
   start.setHours(0, 0, 0, 0);
   const end = new Date(start);
   end.setDate(end.getDate() + 1);
@@ -35,7 +40,7 @@ router.get('/projects', async (req, res) => {
 // Today's start/end status for a project — used by the frontend to drive
 // the lifecycle: shows warnings, prevents double-start, etc.
 router.get('/today-status/:projectId', async (req, res) => {
-  const logs = await getTodayLogs(req.params.projectId, req.user._id);
+  const logs = await getTodayLogs(req.params.projectId, req.user._id, req.query.date);
   const startLog = logs.find((l) => l.type === 'start') || null;
   const endLog = logs.find((l) => l.type === 'end') || null;
   res.json({ started: !!startLog, ended: !!endLog, startLog, endLog });
@@ -48,7 +53,7 @@ router.post('/start-day', async (req, res) => {
     return res.status(400).json({ error: 'projectId and towerNo are required' });
   }
 
-  const logs = await getTodayLogs(projectId, req.user._id);
+  const logs = await getTodayLogs(projectId, req.user._id, date);
   if (logs.find((l) => l.type === 'start')) {
     return res.status(409).json({ error: 'Day already started. End today\'s session before starting a new one.' });
   }
@@ -73,7 +78,7 @@ router.post('/end-day', async (req, res) => {
     return res.status(400).json({ error: 'projectId and towerNo are required' });
   }
 
-  const logs = await getTodayLogs(projectId, req.user._id);
+  const logs = await getTodayLogs(projectId, req.user._id, date);
   if (!logs.find((l) => l.type === 'start')) {
     return res.status(400).json({ error: 'You must start your day first before ending it.' });
   }
