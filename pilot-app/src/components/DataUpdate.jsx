@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { api } from '../api';
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -13,11 +13,22 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
   const [pilots, setPilots] = useState([]);
   const [selectedPilotId, setSelectedPilotId] = useState(user._id || user.id || '');
 
+  // Issue reason modal state
+  const [issueModal, setIssueModal] = useState(null); // { idx, towerNo }
+  const [issueInput, setIssueInput] = useState('');
+  const issueInputRef = useRef(null);
+
   useEffect(() => {
     api.get('/pilot/pilots')
       .then(r => setPilots(r.data.pilots))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (issueModal) {
+      setTimeout(() => issueInputRef.current?.focus(), 50);
+    }
+  }, [issueModal]);
 
   function validateRange() {
     const f = parseInt(from, 10);
@@ -37,7 +48,7 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
     setBusy(true);
     try {
       const { data } = await api.get(`/pilot/towers/${projectId}`, { params: { from, to } });
-      setRows(data.rows);
+      setRows(data.rows.map(r => ({ ...r, issueNote: '' })));
     } catch (e) {
       setMsg({ type: 'err', text: e.response?.data?.error || 'Failed to load towers' });
     } finally {
@@ -46,11 +57,53 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
   }
 
   function toggle(idx, field) {
-    setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, [field]: !r[field] } : r)));
+    if (field === 'issueReplace') {
+      const current = rows[idx].issueReplace;
+      if (!current) {
+        // Turning ON: open the modal to ask for reason
+        setIssueInput(rows[idx].issueNote || '');
+        setIssueModal({ idx, towerNo: rows[idx].number });
+      } else {
+        // Turning OFF: clear the issue
+        setRows(prev => prev.map((r, i) => i === idx ? { ...r, issueReplace: false, issueNote: '' } : r));
+      }
+    } else {
+      setRows(prev => prev.map((r, i) => i === idx ? { ...r, [field]: !r[field] } : r));
+    }
+  }
+
+  function confirmIssue() {
+    if (!issueInput.trim()) return; // require reason
+    const { idx } = issueModal;
+    setRows(prev => prev.map((r, i) => i === idx ? { ...r, issueReplace: true, issueNote: issueInput.trim() } : r));
+    setIssueModal(null);
+    setIssueInput('');
+  }
+
+  function cancelIssue() {
+    setIssueModal(null);
+    setIssueInput('');
   }
 
   function toggleAll(field, checked) {
-    setRows((prev) => prev.map((r) => ({ ...r, [field]: checked })));
+    if (field === 'issueReplace' && checked) {
+      // Bulk-check issues: open a single modal for all
+      setIssueInput('');
+      setIssueModal({ idx: 'all', towerNo: 'all selected' });
+    } else {
+      setRows(prev => prev.map(r => ({
+        ...r,
+        [field]: checked,
+        ...(field === 'issueReplace' && !checked ? { issueNote: '' } : {}),
+      })));
+    }
+  }
+
+  function confirmIssueAll() {
+    if (!issueInput.trim()) return;
+    setRows(prev => prev.map(r => ({ ...r, issueReplace: true, issueNote: issueInput.trim() })));
+    setIssueModal(null);
+    setIssueInput('');
   }
 
   function isAllChecked(field) {
@@ -80,8 +133,8 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
   }
 
   function resetTable() {
-    setRows((prev) =>
-      prev ? prev.map((r) => ({ ...r, dataCapture: false, dataUpload: false, issueReplace: false })) : prev
+    setRows(prev =>
+      prev ? prev.map(r => ({ ...r, dataCapture: false, dataUpload: false, issueReplace: false, issueNote: '' })) : prev
     );
   }
 
@@ -92,7 +145,7 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
     setMsg(null);
   }
 
-  const alreadyCapturedCount = rows ? rows.filter((r) => r.alreadyCaptured).length : 0;
+  const alreadyCapturedCount = rows ? rows.filter(r => r.alreadyCaptured).length : 0;
   const checkboxCols = [
     { field: 'dataCapture', label: 'Data Capture' },
     { field: 'dataUpload', label: 'Data Upload' },
@@ -106,26 +159,20 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
       <div className="form-grid">
         <div>
           <label>Pilot</label>
-          <select value={selectedPilotId} onChange={(e) => setSelectedPilotId(e.target.value)}>
-            {pilots.length === 0 && (
-              <option value={user._id || user.id}>{user.name}</option>
-            )}
-            {pilots.map((p) => (
-              <option key={p._id} value={p._id}>{p.name}</option>
-            ))}
+          <select value={selectedPilotId} onChange={e => setSelectedPilotId(e.target.value)}>
+            {pilots.length === 0 && <option value={user._id || user.id}>{user.name}</option>}
+            {pilots.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
           </select>
         </div>
         <div>
           <label>Date</label>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <input type="date" value={date} onChange={e => setDate(e.target.value)} />
         </div>
         <div>
           <label>Project</label>
-          <select value={projectId} onChange={(e) => onProjectChange(e.target.value)}>
+          <select value={projectId} onChange={e => onProjectChange(e.target.value)}>
             <option value="">Select project…</option>
-            {projects.map((p) => (
-              <option key={p._id} value={p._id}>{p.name}</option>
-            ))}
+            {projects.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
           </select>
         </div>
       </div>
@@ -133,11 +180,11 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
       <div className="range-row">
         <div>
           <label>Tower from</label>
-          <input value={from} onChange={(e) => setFrom(e.target.value)} placeholder="1" />
+          <input value={from} onChange={e => setFrom(e.target.value)} placeholder="1" />
         </div>
         <div>
           <label>Tower to</label>
-          <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="20" />
+          <input value={to} onChange={e => setTo(e.target.value)} placeholder="20" />
         </div>
         <button className="secondary" onClick={loadTable} disabled={busy}>
           Load table
@@ -152,7 +199,6 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
             <div className="status-banner warn" style={{ marginTop: 8 }}>
               {alreadyCapturedCount} tower{alreadyCapturedCount > 1 ? 's' : ''} in this range{' '}
               {alreadyCapturedCount > 1 ? 'are' : 'is'} already recorded (highlighted in yellow).
-              Unchecking and re-saving will overwrite the existing record.
             </div>
           )}
 
@@ -166,7 +212,7 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
                       <SelectAllCheckbox
                         checked={isAllChecked(field)}
                         indeterminate={isSomeChecked(field)}
-                        onChange={(v) => toggleAll(field, v)}
+                        onChange={v => toggleAll(field, v)}
                       />
                       <span style={{ marginLeft: 6 }}>{label}</span>
                     </th>
@@ -175,11 +221,7 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
               </thead>
               <tbody>
                 {rows.map((r, idx) => (
-                  <tr
-                    key={r.number}
-                    className={r.alreadyCaptured ? 'already-done' : undefined}
-                    title={r.alreadyCaptured ? 'Previously captured — editing will overwrite' : undefined}
-                  >
+                  <tr key={r.number} className={r.alreadyCaptured ? 'already-done' : undefined}>
                     <td className="tower-cell">{r.number}</td>
                     {checkboxCols.map(({ field }) => (
                       <td key={field} className="check-cell">
@@ -188,6 +230,11 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
                           checked={r[field]}
                           onChange={() => toggle(idx, field)}
                         />
+                        {field === 'issueReplace' && r.issueReplace && r.issueNote && (
+                          <div className="issue-note-chip" title={r.issueNote}>
+                            {r.issueNote.length > 18 ? r.issueNote.slice(0, 18) + '…' : r.issueNote}
+                          </div>
+                        )}
                       </td>
                     ))}
                   </tr>
@@ -197,17 +244,47 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
           </div>
 
           <div className="btn-row">
-            <button onClick={submit} disabled={busy}>
-              {busy ? 'Saving…' : 'Submit'}
-            </button>
-            <button className="secondary" onClick={resetTable} disabled={busy}>
-              Reset table
-            </button>
-            <button className="ghost" onClick={cancel} disabled={busy}>
-              Cancel
-            </button>
+            <button onClick={submit} disabled={busy}>{busy ? 'Saving…' : 'Submit'}</button>
+            <button className="secondary" onClick={resetTable} disabled={busy}>Reset</button>
+            <button className="ghost" onClick={cancel} disabled={busy}>Cancel</button>
           </div>
         </>
+      )}
+
+      {/* Issue reason modal */}
+      {issueModal && (
+        <div className="issue-modal-backdrop" onClick={cancelIssue}>
+          <div className="issue-modal" onClick={e => e.stopPropagation()}>
+            <div className="issue-modal-title">
+              Issue reason
+              {issueModal.idx !== 'all'
+                ? ` — Tower ${issueModal.towerNo}`
+                : ' — all towers'}
+            </div>
+            <p className="issue-modal-hint">Describe the issue so the client can see it on the dashboard.</p>
+            <textarea
+              ref={issueInputRef}
+              className="issue-modal-input"
+              value={issueInput}
+              onChange={e => setIssueInput(e.target.value)}
+              rows={3}
+              placeholder="e.g. Foundation crack, Access blocked, Loose hardware…"
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); issueModal.idx === 'all' ? confirmIssueAll() : confirmIssue(); }
+                if (e.key === 'Escape') cancelIssue();
+              }}
+            />
+            <div className="issue-modal-actions">
+              <button
+                onClick={issueModal.idx === 'all' ? confirmIssueAll : confirmIssue}
+                disabled={!issueInput.trim()}
+              >
+                Confirm
+              </button>
+              <button className="ghost" onClick={cancelIssue}>Cancel</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -218,8 +295,8 @@ function SelectAllCheckbox({ checked, indeterminate, onChange }) {
     <input
       type="checkbox"
       checked={checked}
-      ref={(el) => { if (el) el.indeterminate = indeterminate; }}
-      onChange={(e) => onChange(e.target.checked)}
+      ref={el => { if (el) el.indeterminate = indeterminate; }}
+      onChange={e => onChange(e.target.checked)}
     />
   );
 }

@@ -40,6 +40,19 @@ export async function buildDashboard(projectId) {
     .sort({ date: -1 })
     .lean();
 
+  // ---- Tower issues (issueReplace with a note) ----
+  const issueTowers = await Tower.find({ project: projectId, issueReplace: true, notes: { $exists: true, $ne: '' } })
+    .populate('capturedBy', 'name')
+    .sort({ number: 1 })
+    .lean();
+
+  const towerIssues = issueTowers.map((t) => ({
+    number: t.number,
+    note: t.notes,
+    pilotName: t.capturedBy?.name || '',
+    updatedAt: t.updatedAt,
+  }));
+
   // ---- Non-working days ----
   const nonWorkingLogs = await DailyLog.find({ project: projectId, type: 'nonworking' })
     .populate('pilot', 'name')
@@ -161,5 +174,6 @@ export async function buildDashboard(projectId) {
     communication,
     prediction,
     nonWorkingDays,
+    towerIssues,
   };
 }

@@ -79,6 +79,10 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
     setMsg(null);
     if (!projectId) { setMsg({ type: 'err', text: 'Select a project first' }); return; }
     if (!isNonWorking && !towerNo) { setMsg({ type: 'err', text: 'Tower number is required' }); return; }
+    if (isNonWorking && !note.trim()) {
+      setMsg({ type: 'err', text: 'Please enter a reason for the non-working day.' });
+      return;
+    }
     setBusy(true);
     try {
       await api.post(`/pilot/${isStart ? 'start-day' : 'end-day'}`, {
@@ -205,7 +209,7 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
 
           {isNonWorking && (
             <div className="status-banner warn" style={{ marginBottom: 0 }}>
-              No field work today — only an optional reason is required.
+              No field work today — a reason is required before submitting.
             </div>
           )}
 
@@ -238,12 +242,13 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
           )}
           {image && !isNonWorking && <img className="preview" src={image} alt="preview" />}
 
-          <label>{isNonWorking ? 'Reason (optional)' : 'Note (optional)'}</label>
+          <label>{isNonWorking ? 'Reason *' : 'Note (optional)'}</label>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
             placeholder={isNonWorking ? 'e.g. Public holiday, Rain, Site access denied…' : ''}
+            style={isNonWorking ? { borderColor: note.trim() ? undefined : 'var(--yellow)' } : undefined}
           />
 
           {msg && <div className={msg.type === 'ok' ? 'ok' : 'error'}>{msg.text}</div>}

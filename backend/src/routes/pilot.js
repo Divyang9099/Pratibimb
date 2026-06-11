@@ -84,13 +84,16 @@ router.post('/start-day', async (req, res) => {
     }
 
     if (nonWorking) {
+      if (!note || !note.trim()) {
+        return res.status(400).json({ error: 'Reason is required for a non-working day.' });
+      }
       const log = await DailyLog.create({
         project: projectId,
         pilot: req.user._id,
         type: 'nonworking',
         date: date ? new Date(date) : new Date(),
         towerNo: '',
-        note: note || '',
+        note: note.trim(),
       });
       notify(projectId);
       return res.status(201).json({ log });
@@ -254,6 +257,8 @@ router.post('/data-update', async (req, res) => {
       else { set.capturedAt = null; }
       if (row.dataUpload) { set.uploadedAt = when; set.uploadedBy = attributeTo; }
       else { set.uploadedAt = null; }
+      if (row.issueReplace && row.issueNote) { set.notes = String(row.issueNote).trim(); }
+      else if (!row.issueReplace) { set.notes = ''; }
       return {
         updateOne: {
           filter: { project: projectId, number: String(row.number) },

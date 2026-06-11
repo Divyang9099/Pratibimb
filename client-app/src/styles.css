@@ -369,6 +369,27 @@ button:disabled { opacity: .5; cursor: default; transform: none !important; }
 .chart-tooltip-label { margin: 0 0 4px; font-weight: 700; font-size: 13px; }
 
 /* ---- Non-working days panel ---- */
+.nwd-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--muted);
+  margin-bottom: 8px;
+  margin-top: 4px;
+}
+.nwd-divider {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 14px 0;
+}
+.nwd-item--issue {
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+.nwd-dot--off  { background: #eab308; }
+.nwd-dot--issue { background: #f97316; }
+
 .nwd-count {
   display: inline-flex;
   align-items: center;
