@@ -81,12 +81,14 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <div className="brand">
-          <img src="/favicon.png" alt="" style={{ height: 24, marginRight: 8, verticalAlign: 'middle', borderRadius: 4 }} />
-          प्रतिबिम्ब <span className="muted"> · Client</span>
+        <div className="topbar-left">
+          <div className="brand">
+            <img src="/favicon.png" alt="" className="logo-img" />
+            प्रतिबिम्ब
+          </div>
+          <span className="topbar-badge">{session.client.name}</span>
         </div>
         <div className="topbar-right">
-          <span className="client-name">{session.client.name}</span>
           <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
             <option value="">Select project…</option>
             {session.projects.map((p) => (
