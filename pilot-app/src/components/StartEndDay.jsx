@@ -141,9 +141,11 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
   const isFrozenEnd     = !isStart && !!status?.ended;
   const notYetStarted   = !isStart && !status?.started && !status?.nonWorking;
   const endDayNonWork   = !isStart && !!status?.nonWorking;
+  const isFrozen        = isStart ? isFrozenStart : isFrozenEnd;
 
-  const formHidden = notYetStarted || endDayNonWork;
-  const isFrozen = isStart ? isFrozenStart : isFrozenEnd;
+  // Hide the form entirely once a day is already logged — the banner contains
+  // all the relevant info (tower, time). Also hide when blocked from acting.
+  const formHidden = isFrozen || notYetStarted || endDayNonWork;
 
   return (
     <div className="card">
