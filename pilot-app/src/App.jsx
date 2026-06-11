@@ -52,7 +52,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <img src="/favicon.png" alt="" style={{ height: 24, marginRight: 8, verticalAlign: 'middle', borderRadius: 4 }} />
-          प्रतिबिम्ब:<span className="muted">· Pilot</span>
+          प्रतिबिम्ब: <span className="muted">· Pilot</span>
         </div>
         <div className="topbar-right">
           <span className="who">{user.name}</span>
