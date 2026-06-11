@@ -103,13 +103,14 @@ input, select, textarea {
 
 /* ---- App shell ---- */
 .shell {
-  display: grid;
-  grid-template-columns: 220px 1fr;
+  display: flex;
   min-height: 100dvh;
 }
 
 /* ---- Sidebar ---- */
 .sidebar {
+  width: 220px;
+  flex-shrink: 0;
   background: var(--bg);
   color: #fff;
   padding: 20px 12px;
@@ -120,9 +121,29 @@ input, select, textarea {
   top: 0;
   height: 100dvh;
   overflow-y: auto;
+  z-index: 300;
+  transition: transform .25s ease;
 }
-.sidebar .brand { color: #fff; margin-bottom: 20px; padding: 0 4px; }
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding: 0 4px;
+}
+.sidebar .brand { color: #fff; }
 .sidebar .brand .muted { color: #94a3b8; }
+.sidebar-close {
+  display: none;
+  background: transparent;
+  color: #94a3b8;
+  border: 0;
+  min-height: auto;
+  font-size: 18px;
+  padding: 4px 8px;
+  cursor: pointer;
+  line-height: 1;
+}
 .sidebar nav {
   display: flex;
   flex-direction: column;
@@ -154,7 +175,67 @@ input, select, textarea {
 }
 .logout:hover { background: rgba(255,255,255,.12); }
 
-.main { padding: 24px 28px; overflow: auto; }
+/* Backdrop */
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.5);
+  z-index: 299;
+  backdrop-filter: blur(2px);
+}
+
+/* ---- Main wrap + top navbar ---- */
+.main-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.admin-topbar {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  padding: 0 16px;
+  height: 54px;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  box-shadow: var(--shadow-sm);
+}
+.admin-topbar-brand { font-size: 16px; flex: 1; }
+.admin-topbar-section {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Hamburger button */
+.hamburger {
+  background: transparent;
+  border: 0;
+  min-height: auto;
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.hamburger span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: var(--bg);
+  border-radius: 2px;
+  transition: background .15s;
+}
+.hamburger:active span { background: var(--accent); }
+
+.main { padding: 24px 28px; overflow: auto; flex: 1; }
 
 /* ---- Forms ---- */
 .inline-form {
@@ -328,25 +409,20 @@ tr.editing { background: #f8fafc; }
 .sk-row  { height: 50px; border-radius: 8px; margin-bottom: 8px; }
 .sk-head { height: 28px; width: 45%; margin-bottom: 16px; }
 
-/* ---- Tablet ---- */
+/* ---- Mobile: hide sidebar, show topbar + drawer ---- */
 @media (max-width: 840px) {
-  .shell { grid-template-columns: 1fr; }
   .sidebar {
-    position: sticky;
+    position: fixed;
     top: 0;
-    height: auto;
-    flex-direction: row;
-    align-items: center;
-    flex-wrap: wrap;
-    padding: 10px 14px;
-    gap: 8px;
-    z-index: 200;
-    border-bottom: 1px solid rgba(255,255,255,.1);
+    left: 0;
+    height: 100dvh;
+    transform: translateX(-100%);
+    box-shadow: 4px 0 24px rgba(0,0,0,.3);
   }
-  .sidebar .brand { margin-bottom: 0; font-size: 16px; }
-  .sidebar nav { flex-direction: row; flex: 1; gap: 4px; }
-  .nav { height: 38px; min-height: 38px; padding: 0 12px; font-size: 13px; }
-  .logout { height: 38px; min-height: 38px; margin-top: 0; }
+  .sidebar--open { transform: translateX(0); }
+  .sidebar-close { display: block; }
+  .sidebar-backdrop { display: block; }
+  .admin-topbar { display: flex; }
   .main { padding: 18px 16px; }
   .cols { grid-template-columns: 1fr; }
   .form-grid { grid-template-columns: 1fr; }
@@ -354,9 +430,6 @@ tr.editing { background: #f8fafc; }
 
 /* ---- Phone ---- */
 @media (max-width: 600px) {
-  .sidebar nav { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-  .sidebar nav::-webkit-scrollbar { display: none; }
-  .nav { white-space: nowrap; flex-shrink: 0; }
   .detail-head { flex-direction: column; align-items: flex-start; }
   .head-actions { width: 100%; }
   .inline-form { flex-direction: column; }
