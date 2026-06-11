@@ -4,6 +4,7 @@ import { warmBackend } from './components/WarmUp.jsx';
 import KeyGate from './components/KeyGate.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import DashboardSkeleton from './components/DashboardSkeleton.jsx';
+import { withRetry } from './components/WarmUp.jsx';
 
 // Silent background ping so the Render free-tier server wakes up while the
 // client is reading the page and typing their key.
@@ -51,10 +52,12 @@ export default function App() {
     const load = async () => {
       if (isFirstLoad) setLoading(true);
       try {
-        const data = await fetchDashboard(projectId, session.key);
+        // First load: retry through cold-starts. Background refreshes: single attempt.
+        const data = isFirstLoad
+          ? await withRetry(() => fetchDashboard(projectId, session.key))
+          : await fetchDashboard(projectId, session.key);
         if (active) { setDashboard(data); setError(''); }
       } catch (e) {
-        // Only surface the error on the very first load; silent on background refresh.
         if (active && isFirstLoad) {
           setError(e.response?.data?.error || 'Failed to load dashboard');
         }
