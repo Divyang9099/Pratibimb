@@ -49,8 +49,8 @@ app.use(
     credentials: true,
   })
 );
-// Field reference images can be base64 data URIs, so allow a large body.
-app.use(express.json({ limit: '15mb' }));
+// Field reference images are base64 data URIs — allow up to 30 MB.
+app.use(express.json({ limit: '30mb' }));
 
 app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date() }));
 
