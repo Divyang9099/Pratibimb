@@ -10,7 +10,7 @@ function fmtTime(iso) {
 
 function fmtDate(iso) {
   if (!iso) return '';
-  return new Date(iso).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+  return new Date(iso).toLocaleDateString(undefined, { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 async function fileToDataUri(file) {
@@ -29,6 +29,7 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
   const [towerNo, setTowerNo] = useState('');
   const [image, setImage] = useState('');
   const [note, setNote] = useState('');
+  const [isNonWorking, setIsNonWorking] = useState(false);
   const [msg, setMsg] = useState(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState(null);
@@ -50,7 +51,6 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
   }, [projectId, isStart, date]);
 
   // End Day: find the most recent unended session; auto-populate date from it.
-  // Date is NOT in deps so setting it from the response doesn't cause a re-fetch.
   useEffect(() => {
     if (!projectId || isStart) {
       if (!projectId) { setStatus(null); setDate(today()); }
@@ -63,7 +63,7 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
         if (!active) return;
         const s = r.data;
         if (s.session) setDate(s.session.date.slice(0, 10));
-        setStatus({ started: !!s.session, ended: s.ended, startLog: s.session || null, endLog: s.endLog || null });
+        setStatus({ started: !!s.session, ended: s.ended, nonWorking: s.nonWorking, startLog: s.session || null, endLog: s.endLog || null, nonWorkingLog: s.nonWorkingLog || null });
       })
       .catch(() => { if (active) setStatus(null); })
       .finally(() => { if (active) setStatusLoading(false); });
@@ -74,7 +74,7 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
   const prevFrozenRef = useRef(false);
   useEffect(() => {
     const logToDisplay = isStart ? status?.startLog : status?.endLog;
-    const isFrozen = isStart ? !!status?.started : !!status?.ended;
+    const isFrozen = isStart ? (!!status?.started || !!status?.nonWorking) : !!status?.ended;
     if (isFrozen && logToDisplay) {
       setTowerNo(logToDisplay.towerNo || '');
       setImage(logToDisplay.image || '');
@@ -87,22 +87,36 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
     prevFrozenRef.current = isFrozen;
   }, [status, isStart]);
 
+  // Reset non-working toggle when date or project changes.
+  useEffect(() => { setIsNonWorking(false); }, [projectId, date]);
+
   async function submit(e) {
     e.preventDefault();
     setMsg(null);
-    if (!projectId || !towerNo) {
-      setMsg({ type: 'err', text: 'Project and tower number are required' });
+    if (!projectId) {
+      setMsg({ type: 'err', text: 'Select a project first' });
+      return;
+    }
+    if (!isNonWorking && !towerNo) {
+      setMsg({ type: 'err', text: 'Tower number is required' });
       return;
     }
     setBusy(true);
     try {
-      await api.post(`/pilot/${isStart ? 'start-day' : 'end-day'}`, { projectId, date, towerNo, image, note });
-      setMsg({
-        type: 'ok',
-        text: isStart
-          ? `Day started at tower ${towerNo}. Head to the field!`
-          : `Day ended at tower ${towerNo}. Now submit your data records.`,
+      await api.post(`/pilot/${isStart ? 'start-day' : 'end-day'}`, {
+        projectId, date, towerNo, image, note,
+        ...(isStart && isNonWorking ? { nonWorking: true } : {}),
       });
+      if (isStart && isNonWorking) {
+        setMsg({ type: 'ok', text: `Non-working day logged for ${fmtDate(date)}.` });
+      } else {
+        setMsg({
+          type: 'ok',
+          text: isStart
+            ? `Day started at tower ${towerNo}. Head to the field!`
+            : `Day ended at tower ${towerNo}. Now submit your data records.`,
+        });
+      }
       setTowerNo('');
       setImage('');
       setNote('');
@@ -111,7 +125,7 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
         setStatus(r.data);
       } else {
         const r = await api.get(`/pilot/active-session/${projectId}`);
-        setStatus({ started: !!r.data.session, ended: r.data.ended, startLog: r.data.session, endLog: r.data.endLog });
+        setStatus({ started: !!r.data.session, ended: r.data.ended, nonWorking: r.data.nonWorking, startLog: r.data.session, endLog: r.data.endLog });
         setTimeout(() => onDayEnded?.(), 1200);
       }
     } catch (err) {
@@ -121,8 +135,15 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
     }
   }
 
-  const isFrozen = isStart ? !!status?.started : !!status?.ended;
-  const notYetStarted = !status?.started && !isStart;
+  const alreadyStarted  = isStart && !!status?.started;
+  const alreadyNonWork  = isStart && !!status?.nonWorking;
+  const isFrozenStart   = alreadyStarted || alreadyNonWork;
+  const isFrozenEnd     = !isStart && !!status?.ended;
+  const notYetStarted   = !isStart && !status?.started && !status?.nonWorking;
+  const endDayNonWork   = !isStart && !!status?.nonWorking;
+
+  const formHidden = notYetStarted || endDayNonWork;
+  const isFrozen = isStart ? isFrozenStart : isFrozenEnd;
 
   return (
     <div className="card">
@@ -133,7 +154,8 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
           : 'Log the evening close: the last tower covered today.'}
       </p>
 
-      <div className="form" style={{ marginBottom: 12 }}>
+      {/* Project selector */}
+      <div className="form" style={{ marginBottom: 14 }}>
         <label>Project</label>
         <select value={projectId} onChange={(e) => onProjectChange(e.target.value)}>
           <option value="">Select project…</option>
@@ -143,21 +165,34 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
         </select>
       </div>
 
+      {/* Status banners */}
       {projectId && statusLoading && (
         <div className="status-banner loading">Checking status…</div>
       )}
 
-      {projectId && !statusLoading && status && isStart && status.started && (
+      {/* Start Day banners */}
+      {projectId && !statusLoading && status && isStart && alreadyNonWork && (
+        <div className="status-banner warn">
+          <strong>Non-working day already logged</strong> for {fmtDate(status.nonWorkingLog?.date)}.
+          {status.nonWorkingLog?.note && <> Reason: "{status.nonWorkingLog.note}"</>}
+        </div>
+      )}
+      {projectId && !statusLoading && status && isStart && alreadyStarted && !alreadyNonWork && (
         <div className="status-banner warn">
           <strong>Day already started</strong> at tower {status.startLog?.towerNo} —{' '}
           {fmtDate(status.startLog?.date)} at {fmtTime(status.startLog?.createdAt)}.
-          {status.ended
-            ? ' Session complete — go to Data Update to submit records.'
-            : ' End your session before starting a new one.'}
+          {status.ended ? ' Session complete — go to Data Update.' : ' End your session before starting a new one.'}
         </div>
       )}
 
-      {projectId && !statusLoading && status && !isStart && !status.started && (
+      {/* End Day banners */}
+      {projectId && !statusLoading && status && endDayNonWork && (
+        <div className="status-banner warn">
+          <strong>Non-working day</strong> was logged for {fmtDate(status.nonWorkingLog?.date)}.
+          No field close required.
+        </div>
+      )}
+      {projectId && !statusLoading && status && notYetStarted && (
         <div className="status-banner err">
           You must <strong>Start Day</strong> first before ending it.
         </div>
@@ -165,7 +200,7 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
       {projectId && !statusLoading && status && !isStart && status.started && status.ended && (
         <div className="status-banner warn">
           <strong>Day already ended</strong> at tower {status.endLog?.towerNo} at{' '}
-          {fmtTime(status.endLog?.createdAt)}. Go to Data Update to submit your records.
+          {fmtTime(status.endLog?.createdAt)}. Go to Data Update to submit records.
         </div>
       )}
       {projectId && !statusLoading && status && !isStart && status.started && !status.ended && (
@@ -175,8 +210,27 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
         </div>
       )}
 
-      {!notYetStarted && (
+      {/* Entry form */}
+      {!formHidden && (
         <form className="form" onSubmit={submit} style={{ marginTop: 12 }}>
+
+          {/* Non-working day toggle — only on Start Day, only when not already submitted */}
+          {isStart && !isFrozen && (
+            <div
+              className={`nwd-toggle${isNonWorking ? ' active' : ''}`}
+              onClick={() => { setIsNonWorking(v => !v); setTowerNo(''); setImage(''); }}
+            >
+              <span className="nwd-toggle-icon">{isNonWorking ? '✕' : '+'}</span>
+              <span>{isNonWorking ? 'Working day (tap to switch back)' : 'Mark as Non-Working Day'}</span>
+            </div>
+          )}
+
+          {isNonWorking && isStart && (
+            <div className="status-banner warn" style={{ marginTop: 4, marginBottom: 0 }}>
+              No field work today — only date and an optional reason are required.
+            </div>
+          )}
+
           <label>Date</label>
           <input
             type="date"
@@ -185,15 +239,21 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
             disabled={isFrozen || !isStart}
           />
 
-          <label>{isStart ? 'Start tower no.' : 'Close tower no.'}</label>
-          <input
-            value={towerNo}
-            onChange={(e) => setTowerNo(e.target.value)}
-            placeholder="e.g. 23"
-            disabled={isFrozen}
-          />
+          {/* Tower number — hidden for non-working days */}
+          {!isNonWorking && (
+            <>
+              <label>{isStart ? 'Start tower no.' : 'Close tower no.'}</label>
+              <input
+                value={towerNo}
+                onChange={(e) => setTowerNo(e.target.value)}
+                placeholder="e.g. 23"
+                disabled={isFrozen}
+              />
+            </>
+          )}
 
-          {!isFrozen && (
+          {/* Image — hidden for non-working days */}
+          {!isNonWorking && !isFrozen && (
             <>
               <label>Field image</label>
               <input
@@ -207,21 +267,22 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
               />
             </>
           )}
-          {image && <img className="preview" src={image} alt="preview" />}
+          {image && !isNonWorking && <img className="preview" src={image} alt="preview" />}
 
-          <label>Note (optional)</label>
-          <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} disabled={isFrozen} />
+          <label>{isNonWorking ? 'Reason (optional)' : 'Note (optional)'}</label>
+          <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} disabled={isFrozen}
+            placeholder={isNonWorking ? 'e.g. Public holiday, Rain, Site access denied…' : ''} />
 
           {msg && <div className={msg.type === 'ok' ? 'ok' : 'error'}>{msg.text}</div>}
           {!isFrozen && (
             <button disabled={busy} type="submit">
-              {busy ? 'Saving…' : isStart ? 'Start Day' : 'End Day'}
+              {busy ? 'Saving…' : isNonWorking ? 'Log Non-Working Day' : isStart ? 'Start Day' : 'End Day'}
             </button>
           )}
         </form>
       )}
 
-      {notYetStarted && msg?.type === 'ok' && (
+      {(notYetStarted || endDayNonWork) && msg?.type === 'ok' && (
         <div className="ok" style={{ marginTop: 10 }}>{msg.text}</div>
       )}
     </div>

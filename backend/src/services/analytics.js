@@ -40,12 +40,24 @@ export async function buildDashboard(projectId) {
     .sort({ date: -1 })
     .lean();
 
+  // ---- Non-working days ----
+  const nonWorkingLogs = await DailyLog.find({ project: projectId, type: 'nonworking' })
+    .populate('pilot', 'name')
+    .sort({ date: -1 })
+    .lean();
+
+  const nonWorkingDays = nonWorkingLogs.map((l) => ({
+    date: l.date,
+    pilotName: l.pilot?.name || 'Unknown',
+    note: l.note || '',
+  }));
+
   // ---- Daily activity (capture / upload per day, with tower range) ----
   const dailyMap = new Map();
   const bump = (dateVal, field, towerNum) => {
     if (!dateVal) return;
     const k = dayKey(dateVal);
-    if (!dailyMap.has(k)) dailyMap.set(k, { date: k, captured: 0, uploaded: 0, towerMin: Infinity, towerMax: -Infinity });
+    if (!dailyMap.has(k)) dailyMap.set(k, { date: k, captured: 0, uploaded: 0, towerMin: Infinity, towerMax: -Infinity, nonWorking: false });
     const entry = dailyMap.get(k);
     entry[field] += 1;
     const n = parseInt(towerNum, 10);
@@ -57,14 +69,30 @@ export async function buildDashboard(projectId) {
   captured.forEach((t) => bump(t.capturedAt, 'captured', t.number));
   uploaded.forEach((t) => bump(t.uploadedAt, 'uploaded', t.number));
 
+  // Merge non-working days into the activity map (0 towers, labelled by date)
+  nonWorkingLogs.forEach((l) => {
+    const k = dayKey(l.date);
+    if (!dailyMap.has(k)) {
+      dailyMap.set(k, { date: k, captured: 0, uploaded: 0, towerMin: Infinity, towerMax: -Infinity, nonWorking: true, nonWorkingNote: l.note || '' });
+    } else {
+      dailyMap.get(k).nonWorking = true;
+    }
+  });
+
+  const fmtShort = (dateStr) => {
+    const d = new Date(dateStr + 'T12:00:00');
+    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+  };
+
   const dailyActivity = [...dailyMap.values()]
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((d) => ({
       ...d,
-      // Human-readable label: tower range worked that day, e.g. "T5–T25"
-      towerLabel: d.towerMin !== Infinity
-        ? d.towerMin === d.towerMax ? `T${d.towerMin}` : `T${d.towerMin}–T${d.towerMax}`
-        : d.date,
+      towerLabel: d.nonWorking
+        ? `Off ${fmtShort(d.date)}`
+        : d.towerMin !== Infinity
+          ? d.towerMin === d.towerMax ? `T${d.towerMin}` : `T${d.towerMin}–T${d.towerMax}`
+          : d.date,
     }));
 
   // ---- Cumulative communication chart (capture solid vs upload dashed) ----
@@ -132,5 +160,6 @@ export async function buildDashboard(projectId) {
     dailyActivity,
     communication,
     prediction,
+    nonWorkingDays,
   };
 }

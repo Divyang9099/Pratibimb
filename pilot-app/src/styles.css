@@ -287,6 +287,43 @@ tr.already-done .tower-cell::after { content: ' ✓'; color: #ca8a04; font-size:
 .status-banner.err     { background: #fee2e2; color: #7f1d1d; border: 1px solid #fecaca; }
 .status-banner.loading { background: #f1f5f9; color: var(--muted); }
 
+/* ---- Non-working day toggle ---- */
+.nwd-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1.5px dashed #cbd5e1;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  background: #f8fafc;
+  transition: background .15s, border-color .15s, color .15s;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.nwd-toggle:hover { background: #f1f5f9; border-color: #94a3b8; }
+.nwd-toggle.active {
+  background: #fef9c3;
+  border-color: #fde047;
+  color: #713f12;
+}
+.nwd-toggle-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  font-weight: 800;
+  background: #e2e8f0;
+  flex-shrink: 0;
+  transition: background .15s;
+}
+.nwd-toggle.active .nwd-toggle-icon { background: #fde047; color: #713f12; }
+
 /* ---- Skeleton ---- */
 @keyframes sk-pulse {
   0%, 100% { background-color: #e2e8f0; }

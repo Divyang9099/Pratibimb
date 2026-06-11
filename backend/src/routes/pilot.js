@@ -45,19 +45,40 @@ router.get('/today-status/:projectId', async (req, res) => {
   const logs = await getTodayLogs(req.params.projectId, req.user._id, req.query.date);
   const startLog = logs.find((l) => l.type === 'start') || null;
   const endLog = logs.find((l) => l.type === 'end') || null;
-  res.json({ started: !!startLog, ended: !!endLog, startLog, endLog });
+  const nonWorkingLog = logs.find((l) => l.type === 'nonworking') || null;
+  res.json({ started: !!startLog, ended: !!endLog, nonWorking: !!nonWorkingLog, startLog, endLog, nonWorkingLog });
 });
 
-// "Start Day" — morning open. Rejects if already started today.
+// "Start Day" — morning open. Also handles non-working day logging.
 router.post('/start-day', async (req, res) => {
-  const { projectId, date, towerNo, image, note } = req.body || {};
-  if (!projectId || !towerNo) {
+  const { projectId, date, towerNo, image, note, nonWorking } = req.body || {};
+  if (!projectId) {
+    return res.status(400).json({ error: 'projectId is required' });
+  }
+  if (!nonWorking && !towerNo) {
     return res.status(400).json({ error: 'projectId and towerNo are required' });
   }
 
   const logs = await getTodayLogs(projectId, req.user._id, date);
-  if (logs.find((l) => l.type === 'start')) {
-    return res.status(409).json({ error: 'Day already started. End today\'s session before starting a new one.' });
+  const existingEntry = logs.find((l) => l.type === 'start' || l.type === 'nonworking');
+  if (existingEntry) {
+    const msg = existingEntry.type === 'nonworking'
+      ? 'This date is already marked as a non-working day.'
+      : 'Day already started. End today\'s session before starting a new one.';
+    return res.status(409).json({ error: msg });
+  }
+
+  if (nonWorking) {
+    const log = await DailyLog.create({
+      project: projectId,
+      pilot: req.user._id,
+      type: 'nonworking',
+      date: date ? new Date(date) : new Date(),
+      towerNo: '',
+      note: note || '',
+    });
+    notifyProjectUpdate(projectId);
+    return res.status(201).json({ log });
   }
 
   const imageUrl = await uploadImage(image || '');
@@ -104,17 +125,22 @@ router.post('/end-day', async (req, res) => {
 });
 
 // Most recent unended session for this pilot + project (any date).
-// Used by End Day to auto-populate the date and show lifecycle status.
+// Also detects if the latest entry was a non-working day, which blocks End Day.
 router.get('/active-session/:projectId', async (req, res) => {
-  const startLog = await DailyLog.findOne({
+  const latestLog = await DailyLog.findOne({
     project: req.params.projectId,
     pilot: req.user._id,
-    type: 'start',
+    type: { $in: ['start', 'nonworking'] },
   }).sort({ date: -1, createdAt: -1 }).lean();
 
-  if (!startLog) return res.json({ session: null, ended: false, endLog: null });
+  if (!latestLog) return res.json({ session: null, ended: false, endLog: null, nonWorking: false });
 
-  const dayStart = new Date(startLog.date);
+  // Non-working day: End Day is not required
+  if (latestLog.type === 'nonworking') {
+    return res.json({ session: null, ended: false, endLog: null, nonWorking: true, nonWorkingLog: latestLog });
+  }
+
+  const dayStart = new Date(latestLog.date);
   dayStart.setHours(0, 0, 0, 0);
   const dayEnd = new Date(dayStart);
   dayEnd.setDate(dayEnd.getDate() + 1);
@@ -126,7 +152,7 @@ router.get('/active-session/:projectId', async (req, res) => {
     date: { $gte: dayStart, $lt: dayEnd },
   }).lean();
 
-  res.json({ session: startLog, ended: !!endLog, endLog: endLog || null });
+  res.json({ session: latestLog, ended: !!endLog, endLog: endLog || null, nonWorking: false });
 });
 
 // All active pilots — used to populate the pilot selector in Data Update.
