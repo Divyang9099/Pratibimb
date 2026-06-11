@@ -1,12 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
-import { socket } from '../socket';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
 function fmtTime(iso) {
   if (!iso) return '';
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 async function fileToDataUri(file) {
@@ -18,9 +22,6 @@ async function fileToDataUri(file) {
   });
 }
 
-// Shared form for Start Day (morning open) and End Day (evening close).
-// Enforces lifecycle: a day must be started before it can be ended,
-// and cannot be started twice.
 export default function StartEndDay({ mode, projects, projectId, onProjectChange, onDayEnded }) {
   const isStart = mode === 'start';
 
@@ -30,60 +31,61 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
   const [note, setNote] = useState('');
   const [msg, setMsg] = useState(null);
   const [busy, setBusy] = useState(false);
-
-  // Today's lifecycle status for this project.
-  const [status, setStatus] = useState(null); // { started, ended, startLog, endLog }
+  const [status, setStatus] = useState(null);
   const [statusLoading, setStatusLoading] = useState(false);
 
-  // Re-check status whenever the project or date changes.
+  // Start Day: re-check status when project or date changes.
   useEffect(() => {
-    if (!projectId) { setStatus(null); return; }
-    
-    const load = () => {
-      setStatusLoading(true);
-      api
-        .get(`/pilot/today-status/${projectId}`, { params: { date } })
-        .then((r) => setStatus(r.data))
-        .catch(() => setStatus(null))
-        .finally(() => setStatusLoading(false));
-    };
+    if (!projectId || !isStart) {
+      if (!projectId) setStatus(null);
+      return;
+    }
+    let active = true;
+    setStatusLoading(true);
+    api.get(`/pilot/today-status/${projectId}`, { params: { date } })
+      .then(r => { if (active) setStatus(r.data); })
+      .catch(() => { if (active) setStatus(null); })
+      .finally(() => { if (active) setStatusLoading(false); });
+    return () => { active = false; };
+  }, [projectId, isStart, date]);
 
-    load();
-
-    socket.emit('join-project', projectId);
-
-    const handleUpdate = (data) => {
-      if (data.projectId === projectId) {
-        load();
-      }
-    };
-
-    socket.on('project-update', handleUpdate);
-
-    return () => {
-      socket.off('project-update', handleUpdate);
-      socket.emit('leave-project', projectId);
-    };
-  }, [projectId, date]);
-
-  const logToDisplay = isStart ? status?.startLog : status?.endLog;
-  const isFrozen = isStart ? !!status?.started : !!status?.ended;
-
-  // Update state values when status updates to populate frozen form
+  // End Day: find the most recent unended session; auto-populate date from it.
+  // Date is NOT in deps so setting it from the response doesn't cause a re-fetch.
   useEffect(() => {
+    if (!projectId || isStart) {
+      if (!projectId) { setStatus(null); setDate(today()); }
+      return;
+    }
+    let active = true;
+    setStatusLoading(true);
+    api.get(`/pilot/active-session/${projectId}`)
+      .then(r => {
+        if (!active) return;
+        const s = r.data;
+        if (s.session) setDate(s.session.date.slice(0, 10));
+        setStatus({ started: !!s.session, ended: s.ended, startLog: s.session || null, endLog: s.endLog || null });
+      })
+      .catch(() => { if (active) setStatus(null); })
+      .finally(() => { if (active) setStatusLoading(false); });
+    return () => { active = false; };
+  }, [projectId, isStart]);
+
+  // Populate form fields when an existing entry is shown (frozen mode).
+  const prevFrozenRef = useRef(false);
+  useEffect(() => {
+    const logToDisplay = isStart ? status?.startLog : status?.endLog;
+    const isFrozen = isStart ? !!status?.started : !!status?.ended;
     if (isFrozen && logToDisplay) {
-      if (logToDisplay.date) {
-        setDate(logToDisplay.date.slice(0, 10));
-      }
       setTowerNo(logToDisplay.towerNo || '');
       setImage(logToDisplay.image || '');
       setNote(logToDisplay.note || '');
-    } else if (!isFrozen) {
+    } else if (!isFrozen && prevFrozenRef.current) {
       setTowerNo('');
       setImage('');
       setNote('');
     }
-  }, [status, isFrozen, isStart]);
+    prevFrozenRef.current = isFrozen;
+  }, [status, isStart]);
 
   async function submit(e) {
     e.preventDefault();
@@ -94,13 +96,7 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
     }
     setBusy(true);
     try {
-      await api.post(`/pilot/${isStart ? 'start-day' : 'end-day'}`, {
-        projectId,
-        date,
-        towerNo,
-        image,
-        note,
-      });
+      await api.post(`/pilot/${isStart ? 'start-day' : 'end-day'}`, { projectId, date, towerNo, image, note });
       setMsg({
         type: 'ok',
         text: isStart
@@ -110,11 +106,14 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
       setTowerNo('');
       setImage('');
       setNote('');
-      // Refresh the status banner immediately after submit.
-      const r = await api.get(`/pilot/today-status/${projectId}`, { params: { date } });
-      setStatus(r.data);
-      // After ending the day, switch to the Data Update tab.
-      if (!isStart) setTimeout(() => onDayEnded?.(), 1200);
+      if (isStart) {
+        const r = await api.get(`/pilot/today-status/${projectId}`, { params: { date } });
+        setStatus(r.data);
+      } else {
+        const r = await api.get(`/pilot/active-session/${projectId}`);
+        setStatus({ started: !!r.data.session, ended: r.data.ended, startLog: r.data.session, endLog: r.data.endLog });
+        setTimeout(() => onDayEnded?.(), 1200);
+      }
     } catch (err) {
       setMsg({ type: 'err', text: err.response?.data?.error || 'Failed to save' });
     } finally {
@@ -122,12 +121,8 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
     }
   }
 
-  // Compute the lifecycle state for this tab.
-  const alreadyStarted = status?.started && isStart;
-  const alreadyEnded   = status?.ended && !isStart;
-  const notYetStarted  = !status?.started && !isStart;
-  // The form is hidden only when they try to end the day before starting it.
-  const formHidden = notYetStarted;
+  const isFrozen = isStart ? !!status?.started : !!status?.ended;
+  const notYetStarted = !status?.started && !isStart;
 
   return (
     <div className="card">
@@ -138,59 +133,57 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
           : 'Log the evening close: the last tower covered today.'}
       </p>
 
-      {/* ---- Project selector ---- */}
       <div className="form" style={{ marginBottom: 12 }}>
         <label>Project</label>
         <select value={projectId} onChange={(e) => onProjectChange(e.target.value)}>
           <option value="">Select project…</option>
           {projects.map((p) => (
-            <option key={p._id} value={p._id}>
-              {p.name}
-            </option>
+            <option key={p._id} value={p._id}>{p.name}</option>
           ))}
         </select>
       </div>
 
-      {/* ---- Lifecycle status banners ---- */}
       {projectId && statusLoading && (
         <div className="status-banner loading">Checking status…</div>
       )}
 
-      {projectId && status && isStart && status.started && (
+      {projectId && !statusLoading && status && isStart && status.started && (
         <div className="status-banner warn">
-          <strong>Day already started</strong> at tower {status.startLog?.towerNo} at{' '}
-          {fmtTime(status.startLog?.createdAt)}.
+          <strong>Day already started</strong> at tower {status.startLog?.towerNo} —{' '}
+          {fmtDate(status.startLog?.date)} at {fmtTime(status.startLog?.createdAt)}.
           {status.ended
-            ? ' Today\'s session is complete — go to Data Update to submit records.'
+            ? ' Session complete — go to Data Update to submit records.'
             : ' End your session before starting a new one.'}
         </div>
       )}
 
-      {projectId && status && !isStart && !status.started && (
+      {projectId && !statusLoading && status && !isStart && !status.started && (
         <div className="status-banner err">
           You must <strong>Start Day</strong> first before ending it.
         </div>
       )}
-
-      {projectId && status && !isStart && status.started && status.ended && (
+      {projectId && !statusLoading && status && !isStart && status.started && status.ended && (
         <div className="status-banner warn">
           <strong>Day already ended</strong> at tower {status.endLog?.towerNo} at{' '}
           {fmtTime(status.endLog?.createdAt)}. Go to Data Update to submit your records.
         </div>
       )}
-
-      {projectId && status && !isStart && status.started && !status.ended && (
+      {projectId && !statusLoading && status && !isStart && status.started && !status.ended && (
         <div className="status-banner ok">
           Day in progress since {fmtTime(status.startLog?.createdAt)} (started at tower{' '}
           {status.startLog?.towerNo}). Fill in below to close the day.
         </div>
       )}
 
-      {/* ---- Entry form (hidden when blocked) ---- */}
-      {!formHidden && (
+      {!notYetStarted && (
         <form className="form" onSubmit={submit} style={{ marginTop: 12 }}>
           <label>Date</label>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={isFrozen} />
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => { if (isStart && !isFrozen) setDate(e.target.value); }}
+            disabled={isFrozen || !isStart}
+          />
 
           <label>{isStart ? 'Start tower no.' : 'Close tower no.'}</label>
           <input
@@ -228,8 +221,9 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
         </form>
       )}
 
-      {/* Success message even when form is hidden */}
-      {formHidden && msg?.type === 'ok' && <div className="ok" style={{ marginTop: 10 }}>{msg.text}</div>}
+      {notYetStarted && msg?.type === 'ok' && (
+        <div className="ok" style={{ marginTop: 10 }}>{msg.text}</div>
+      )}
     </div>
   );
 }

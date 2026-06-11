@@ -2,6 +2,7 @@ import { Router } from 'express';
 import Project from '../models/Project.js';
 import Tower from '../models/Tower.js';
 import DailyLog from '../models/DailyLog.js';
+import User from '../models/User.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { uploadImage } from '../services/cloudinary.js';
 import { notifyProjectUpdate } from '../services/socket.js';
@@ -102,6 +103,41 @@ router.post('/end-day', async (req, res) => {
   res.status(201).json({ log });
 });
 
+// Most recent unended session for this pilot + project (any date).
+// Used by End Day to auto-populate the date and show lifecycle status.
+router.get('/active-session/:projectId', async (req, res) => {
+  const startLog = await DailyLog.findOne({
+    project: req.params.projectId,
+    pilot: req.user._id,
+    type: 'start',
+  }).sort({ date: -1, createdAt: -1 }).lean();
+
+  if (!startLog) return res.json({ session: null, ended: false, endLog: null });
+
+  const dayStart = new Date(startLog.date);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(dayStart);
+  dayEnd.setDate(dayEnd.getDate() + 1);
+
+  const endLog = await DailyLog.findOne({
+    project: req.params.projectId,
+    pilot: req.user._id,
+    type: 'end',
+    date: { $gte: dayStart, $lt: dayEnd },
+  }).lean();
+
+  res.json({ session: startLog, ended: !!endLog, endLog: endLog || null });
+});
+
+// All active pilots — used to populate the pilot selector in Data Update.
+router.get('/pilots', async (req, res) => {
+  const pilots = await User.find({ role: 'pilot', active: true })
+    .select('name _id')
+    .sort({ name: 1 })
+    .lean();
+  res.json({ pilots });
+});
+
 // Tower range for the data-update table.
 // Returns each row with `alreadyCaptured` / `alreadyUploaded` flags so the
 // frontend can highlight towers that were previously recorded.
@@ -141,11 +177,12 @@ router.get('/towers/:projectId', async (req, res) => {
 
 // Save the data-update table — drives all client KPIs and map colours.
 router.post('/data-update', async (req, res) => {
-  const { projectId, date, rows } = req.body || {};
+  const { projectId, date, rows, pilotId } = req.body || {};
   if (!projectId || !Array.isArray(rows)) {
     return res.status(400).json({ error: 'projectId and rows[] are required' });
   }
   const when = date ? new Date(date) : new Date();
+  const attributeTo = pilotId || req.user._id;
 
   const ops = rows.map((row) => {
     const set = {
@@ -155,13 +192,13 @@ router.post('/data-update', async (req, res) => {
     };
     if (row.dataCapture) {
       set.capturedAt = when;
-      set.capturedBy = req.user._id;
+      set.capturedBy = attributeTo;
     } else {
       set.capturedAt = null;
     }
     if (row.dataUpload) {
       set.uploadedAt = when;
-      set.uploadedBy = req.user._id;
+      set.uploadedBy = attributeTo;
     } else {
       set.uploadedAt = null;
     }

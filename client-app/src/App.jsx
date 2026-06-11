@@ -82,8 +82,8 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <span className="logo">◢</span> प्रतिविम्ब
-          <span className="muted"> · Client</span>
+          <img src="/favicon.png" alt="" style={{ height: 24, marginRight: 8, verticalAlign: 'middle', borderRadius: 4 }} />
+          प्रतिबिम्ब <span className="muted"> · Client</span>
         </div>
         <div className="topbar-right">
           <span className="client-name">{session.client.name}</span>

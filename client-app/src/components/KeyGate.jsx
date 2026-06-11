@@ -37,7 +37,7 @@ export default function KeyGate({ onSubmit, error }) {
     <div className="gate">
       <div className="gate-card">
         <div className="brand big">
-          <img src="/favicon.png" className="logo-img" alt="logo" /> प्रतिविम्ब:
+          <img src="/favicon.png" className="logo-img" alt="logo" /> प्रतिबिम्ब
         </div>
         <p className="muted">Powerline inspection — client access</p>
         <form onSubmit={submit}>

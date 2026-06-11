@@ -4,10 +4,7 @@ import { warmBackend } from './components/WarmUp.jsx';
 import Login from './components/Login.jsx';
 import StartEndDay from './components/StartEndDay.jsx';
 import DataUpdate from './components/DataUpdate.jsx';
-import { socket } from './socket';
 
-// Kick off a silent background ping so the free Render server wakes up
-// before the pilot submits their credentials.
 warmBackend();
 
 export default function App() {
@@ -15,17 +12,6 @@ export default function App() {
   const [tab, setTab] = useState(pageStore.getTab);
   const [projects, setProjects] = useState([]);
   const [projectId, setProjectId] = useState(pageStore.getProject);
-
-  useEffect(() => {
-    if (!user) {
-      socket.disconnect();
-      return;
-    }
-    socket.connect();
-    return () => {
-      socket.disconnect();
-    };
-  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -65,7 +51,8 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <span className="logo">◢</span> प्रतिविम्ब: <span className="muted">· Pilot</span>
+          <img src="/favicon.png" alt="" style={{ height: 24, marginRight: 8, verticalAlign: 'middle', borderRadius: 4 }} />
+          प्रतिबिम्ब <span className="muted">· Pilot</span>
         </div>
         <div className="topbar-right">
           <span className="who">{user.name}</span>

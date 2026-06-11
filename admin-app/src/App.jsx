@@ -34,7 +34,8 @@ export default function App() {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <span className="logo">◢</span> प्रतिविम्ब <span className="muted">· Admin</span>
+          <img src="/favicon.png" alt="" style={{ height: 24, marginRight: 8, verticalAlign: 'middle', borderRadius: 4 }} />
+          प्रतिबिम्ब <span className="muted">· Admin</span>
         </div>
         <nav>
           {nav.map((n) => (
