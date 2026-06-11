@@ -86,7 +86,6 @@ export default function App() {
             <img src="/favicon.png" alt="" className="logo-img" />
             प्रतिबिम्ब
           </div>
-          <span className="topbar-badge">{session.client.name}</span>
         </div>
         <div className="topbar-right">
           <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
