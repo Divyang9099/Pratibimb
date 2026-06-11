@@ -35,7 +35,7 @@ export default function App() {
       <aside className="sidebar">
         <div className="brand">
           <img src="/favicon.png" alt="" style={{ height: 24, marginRight: 8, verticalAlign: 'middle', borderRadius: 4 }} />
-          प्रतिबिंब: <span className="muted">· Admin</span>
+          प्रतिबिम्ब: <span className="muted">· Admin</span>
         </div>
         <nav>
           {nav.map((n) => (
