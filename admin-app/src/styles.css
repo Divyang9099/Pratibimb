@@ -555,9 +555,26 @@ tr.editing { background: #f8fafc; }
 
 /* ---- Phone ---- */
 @media (max-width: 600px) {
-  .detail-head { flex-direction: column; align-items: flex-start; }
-  .head-actions { width: 100%; }
-  .head-actions button { flex: 1; }
+  .main { padding: 14px 12px; }
+  h1 { font-size: 20px; }
+
+  .detail-head { flex-direction: column; align-items: stretch; gap: 10px; }
+  .detail-head h1 { margin: 0; }
+  /* Action buttons as a clean 2-up grid; status messages span full width */
+  .head-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .head-actions button { min-height: 44px; font-size: 14px; padding: 0 10px; width: 100%; }
+  .head-actions > span { grid-column: 1 / -1; font-size: 12px; }
+
+  /* KPIs in a neat 2-column grid instead of uneven wrap */
+  .kpi-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .kpi { min-width: 0; }
+  .kpi b { font-size: 20px; }
+
   .inline-form { flex-direction: column; }
   .inline-form input { min-width: 0; }
   .range-row { grid-template-columns: 1fr 1fr; }
