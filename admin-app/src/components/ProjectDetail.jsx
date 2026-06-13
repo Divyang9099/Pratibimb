@@ -1,14 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { socket } from '../socket';
 import AdminDataUpdate from './AdminDataUpdate.jsx';
 
 // Admin view of a single project: KPI summary + editable tower table +
-// field logs. Admin can toggle any tower's capture/upload/issue state.
+// field logs. The tower table uses soft-select — clicks change local state
+// only; nothing is saved until the admin clicks Save.
 export default function ProjectDetail({ projectId, onBack }) {
   const [dash, setDash] = useState(null);
   const [towers, setTowers] = useState([]);
   const [logs, setLogs] = useState([]);
+
+  // Local pending edits for the tower table, keyed by tower number.
+  // { [number]: { captured, uploaded, issueReplace } }
+  const [edits, setEdits] = useState({});
+  const [saving, setSaving] = useState(false);
+  const dirty = Object.keys(edits).length > 0;
+  const dirtyRef = useRef(false);
+  dirtyRef.current = dirty;
 
   async function loadAll() {
     const [d, t, l] = await Promise.all([
@@ -27,7 +36,8 @@ export default function ProjectDetail({ projectId, onBack }) {
     socket.emit('join-project', projectId);
 
     const handleUpdate = (data) => {
-      if (data.projectId === projectId) {
+      // Don't clobber unsaved edits if a live update arrives mid-edit.
+      if (data.projectId === projectId && !dirtyRef.current) {
         loadAll();
       }
     };
@@ -41,17 +51,66 @@ export default function ProjectDetail({ projectId, onBack }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
-  async function toggle(tower, field) {
-    const value = !tower[field];
-    await api.put(`/admin/towers/${projectId}/${tower.number}`, { [field]: value });
-    loadAll();
+  // Current displayed value for a tower field (pending edit overrides server).
+  function valueOf(tower, field) {
+    const e = edits[tower.number];
+    return e ? !!e[field] : !!tower[field];
+  }
+
+  // Soft toggle — updates local edits only. Prunes the entry if it matches
+  // the server state again (so dirty count stays accurate).
+  function toggle(tower, field) {
+    setEdits((prev) => {
+      const base = {
+        captured: !!tower.captured,
+        uploaded: !!tower.uploaded,
+        issueReplace: !!tower.issueReplace,
+      };
+      const cur = prev[tower.number] || base;
+      const next = { ...cur, [field]: !cur[field] };
+      const out = { ...prev };
+      if (
+        next.captured === base.captured &&
+        next.uploaded === base.uploaded &&
+        next.issueReplace === base.issueReplace
+      ) {
+        delete out[tower.number];
+      } else {
+        out[tower.number] = next;
+      }
+      return out;
+    });
+  }
+
+  function discardEdits() {
+    setEdits({});
+  }
+
+  async function saveEdits() {
+    if (!dirty) return;
+    setSaving(true);
+    try {
+      const byNumber = new Map(towers.map((t) => [t.number, t]));
+      const rows = Object.entries(edits).map(([number, e]) => ({
+        number,
+        dataCapture: e.captured,
+        dataUpload: e.uploaded,
+        issueReplace: e.issueReplace,
+        // Preserve any existing issue note on the tower.
+        issueNote: byNumber.get(number)?.notes || '',
+      }));
+      await api.post(`/admin/projects/${projectId}/data-update`, { rows });
+      setEdits({});
+      await loadAll();
+    } finally {
+      setSaving(false);
+    }
   }
 
   const [newTower, setNewTower] = useState('');
   async function addTower() {
     const n = newTower.trim();
     if (!n) return;
-    // Upserting a tower by number creates it if missing.
     await api.put(`/admin/towers/${projectId}/${n}`, {});
     setNewTower('');
     loadAll();
@@ -70,6 +129,7 @@ export default function ProjectDetail({ projectId, onBack }) {
     try {
       await api.post(`/admin/projects/${projectId}/reset-data`);
       setResetMsg('All data reset.');
+      setEdits({});
       loadAll();
     } catch (e) {
       setResetMsg(e.response?.data?.error || 'Reset failed');
@@ -172,23 +232,38 @@ export default function ProjectDetail({ projectId, onBack }) {
                 </tr>
               </thead>
               <tbody>
-                {towers.map((t) => (
-                  <tr key={t._id}>
-                    <td>{t.number}</td>
-                    <td>
-                      <input type="checkbox" checked={!!t.captured} onChange={() => toggle(t, 'captured')} />
-                    </td>
-                    <td>
-                      <input type="checkbox" checked={!!t.uploaded} onChange={() => toggle(t, 'uploaded')} />
-                    </td>
-                    <td>
-                      <input type="checkbox" checked={!!t.issueReplace} onChange={() => toggle(t, 'issueReplace')} />
-                    </td>
-                  </tr>
-                ))}
+                {towers.map((t) => {
+                  const changed = !!edits[t.number];
+                  return (
+                    <tr key={t._id} className={changed ? 'row-dirty' : undefined}>
+                      <td>{t.number}</td>
+                      <td>
+                        <input type="checkbox" checked={valueOf(t, 'captured')} onChange={() => toggle(t, 'captured')} />
+                      </td>
+                      <td>
+                        <input type="checkbox" checked={valueOf(t, 'uploaded')} onChange={() => toggle(t, 'uploaded')} />
+                      </td>
+                      <td>
+                        <input type="checkbox" checked={valueOf(t, 'issueReplace')} onChange={() => toggle(t, 'issueReplace')} />
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
+
+          {dirty && (
+            <div className="save-bar">
+              <span className="save-bar-text">
+                {Object.keys(edits).length} unsaved change{Object.keys(edits).length > 1 ? 's' : ''}
+              </span>
+              <div className="save-bar-actions">
+                <button className="ghost" onClick={discardEdits} disabled={saving}>Discard</button>
+                <button onClick={saveEdits} disabled={saving}>{saving ? 'Saving…' : 'Save changes'}</button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="col">

@@ -21,7 +21,13 @@ export async function buildDashboard(projectId) {
   const project = await Project.findById(projectId).lean();
   if (!project) return null;
 
-  const towers = await Tower.find({ project: projectId }).sort({ number: 1 }).lean();
+  const towers = await Tower.find({ project: projectId }).lean();
+  towers.sort((a, b) => {
+    const na = parseInt(a.number, 10);
+    const nb = parseInt(b.number, 10);
+    if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
+    return String(a.number).localeCompare(String(b.number), undefined, { numeric: true });
+  });
 
   const total = project.totalTowers || towers.length;
   const captured = towers.filter((t) => t.captured);

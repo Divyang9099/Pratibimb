@@ -16,6 +16,15 @@ router.use(requireAuth, requireRole('admin'));
 // docs (by number) and store the route line on the project. Returns the
 // number of towers updated. Tower docs are upserted so points that exist
 // in the KML but not yet as towers still get placed on the map.
+// Natural sort for tower numbers stored as strings ("2" before "10",
+// "25" before "250"). Falls back to text compare for non-numeric labels.
+function compareTowerNumbers(a, b) {
+  const na = parseInt(a, 10);
+  const nb = parseInt(b, 10);
+  if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
+  return String(a).localeCompare(String(b), undefined, { numeric: true });
+}
+
 async function applyKml(projectId, kml) {
   const { towers, route } = parseKml(kml);
 
@@ -225,7 +234,8 @@ router.post('/projects/:id/reset-data', async (req, res) => {
 /* ------------------------------ Towers ----------------------------- */
 
 router.get('/projects/:id/towers', async (req, res) => {
-  const towers = await Tower.find({ project: req.params.id }).sort({ number: 1 }).lean();
+  const towers = await Tower.find({ project: req.params.id }).lean();
+  towers.sort((a, b) => compareTowerNumbers(a.number, b.number));
   res.json({ towers });
 });
 
