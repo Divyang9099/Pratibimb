@@ -507,22 +507,39 @@ tr.editing { background: #f8fafc; }
 /* ---- Soft-select save bar (towers table) ---- */
 .grid.compact tr.row-dirty td { background: #eff6ff; }
 .save-bar {
-  position: sticky;
-  bottom: 0;
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  z-index: 400;
+  width: calc(100% - 40px);
+  max-width: 520px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 10px;
-  padding: 12px 14px;
+  padding: 12px 16px;
   background: var(--surface);
-  border: 1px solid var(--accent);
-  border-radius: 10px;
-  box-shadow: var(--shadow-md);
+  border: 1.5px solid var(--accent);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(37,99,235,.25), 0 4px 12px rgba(0,0,0,.12);
   flex-wrap: wrap;
+  animation: save-bar-in .2s ease;
+}
+@keyframes save-bar-in {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
 }
 .save-bar-text { font-size: 14px; font-weight: 600; color: var(--accent); }
-.save-bar-actions { display: flex; gap: 8px; }
+.save-bar-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.save-bar-actions button { min-height: 40px; }
+
+@media (max-width: 600px) {
+  .save-bar { bottom: 12px; width: calc(100% - 24px); padding: 10px 12px; }
+  .save-bar-text { font-size: 13px; }
+  .save-bar-actions { flex: 1; }
+  .save-bar-actions button { flex: 1; }
+}
 
 /* ---- Skeleton ---- */
 @keyframes sk-pulse {
