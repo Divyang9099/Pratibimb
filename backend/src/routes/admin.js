@@ -229,6 +229,89 @@ router.get('/projects/:id/towers', async (req, res) => {
   res.json({ towers });
 });
 
+// Load a tower-number range for the bulk Data Update editor.
+// Mirrors the pilot's /pilot/towers endpoint but also returns the existing
+// issue note so the admin can see/edit it.
+router.get('/projects/:id/towers-range', async (req, res) => {
+  try {
+    const projectId = req.params.id;
+    const from = parseInt(req.query.from, 10);
+    const to = parseInt(req.query.to, 10);
+    if (Number.isNaN(from) || Number.isNaN(to) || from > to) {
+      return res.status(400).json({ error: 'Provide a valid from <= to range' });
+    }
+    if (to - from > 1000) {
+      return res.status(400).json({ error: 'Range too large (max 1000 towers)' });
+    }
+
+    const existing = await Tower.find({
+      project: projectId,
+      number: { $in: Array.from({ length: to - from + 1 }, (_, i) => String(from + i)) },
+    }).lean();
+    const byNumber = new Map(existing.map((t) => [t.number, t]));
+
+    const rows = [];
+    for (let n = from; n <= to; n += 1) {
+      const t = byNumber.get(String(n));
+      rows.push({
+        number: String(n),
+        dataCapture: t?.captured || false,
+        dataUpload: t?.uploaded || false,
+        issueReplace: t?.issueReplace || false,
+        issueNote: t?.notes || '',
+        alreadyCaptured: t?.captured || false,
+        alreadyUploaded: t?.uploaded || false,
+      });
+    }
+    res.json({ rows });
+  } catch (err) {
+    console.error('GET /projects/:id/towers-range error:', err);
+    res.status(500).json({ error: 'Failed to load towers' });
+  }
+});
+
+// Bulk save the Data Update table (admin). Optionally attribute the
+// capture/upload to a specific pilot; otherwise it's left as-is.
+router.post('/projects/:id/data-update', async (req, res) => {
+  try {
+    const projectId = req.params.id;
+    const { date, rows, pilotId } = req.body || {};
+    if (!Array.isArray(rows)) {
+      return res.status(400).json({ error: 'rows[] is required' });
+    }
+    const when = date ? new Date(date) : new Date();
+    const attributeTo = pilotId || req.user._id;
+
+    const ops = rows.map((row) => {
+      const set = {
+        captured: !!row.dataCapture,
+        uploaded: !!row.dataUpload,
+        issueReplace: !!row.issueReplace,
+      };
+      if (row.dataCapture) { set.capturedAt = when; set.capturedBy = attributeTo; }
+      else { set.capturedAt = null; }
+      if (row.dataUpload) { set.uploadedAt = when; set.uploadedBy = attributeTo; }
+      else { set.uploadedAt = null; }
+      if (row.issueReplace && row.issueNote) { set.notes = String(row.issueNote).trim(); }
+      else if (!row.issueReplace) { set.notes = ''; }
+      return {
+        updateOne: {
+          filter: { project: projectId, number: String(row.number) },
+          update: { $set: set },
+          upsert: true,
+        },
+      };
+    });
+
+    if (ops.length) await Tower.bulkWrite(ops);
+    notifyProjectUpdate(projectId);
+    res.json({ updated: ops.length });
+  } catch (err) {
+    console.error('POST /projects/:id/data-update error:', err);
+    res.status(500).json({ error: err.message || 'Failed to save data update' });
+  }
+});
+
 // Upsert a single tower (admin manual edit, incl. lat/lng for the map).
 router.put('/towers/:projectId/:number', async (req, res) => {
   const { captured, uploaded, issueReplace, lat, lng, notes } = req.body || {};

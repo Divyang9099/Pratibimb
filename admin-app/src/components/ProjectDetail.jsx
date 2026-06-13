@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { socket } from '../socket';
+import AdminDataUpdate from './AdminDataUpdate.jsx';
 
 // Admin view of a single project: KPI summary + editable tower table +
 // field logs. Admin can toggle any tower's capture/upload/issue state.
@@ -75,6 +76,8 @@ export default function ProjectDetail({ projectId, onBack }) {
     }
   }
 
+  const [showDataUpdate, setShowDataUpdate] = useState(false);
+
   const [syncMsg, setSyncMsg] = useState('');
   async function syncKml() {
     setSyncMsg('Syncing…');
@@ -98,6 +101,9 @@ export default function ProjectDetail({ projectId, onBack }) {
       <div className="detail-head">
         <h1>{dash.project.name}</h1>
         <div className="head-actions">
+          <button onClick={() => setShowDataUpdate(v => !v)}>
+            {showDataUpdate ? 'Hide Data Update' : 'Data Update'}
+          </button>
           <button className="secondary" onClick={syncKml}>
             Sync KML → map
           </button>
@@ -111,6 +117,10 @@ export default function ProjectDetail({ projectId, onBack }) {
           </button>
         </div>
       </div>
+
+      {showDataUpdate && (
+        <AdminDataUpdate projectId={projectId} onSaved={loadAll} />
+      )}
 
       <div className="kpi-strip">
         <div className="kpi">
