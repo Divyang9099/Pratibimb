@@ -1,7 +1,7 @@
 # Deploying the Pratibimb backend to EC2
 
 The backend (Express + Socket.io + MongoDB) runs on the EC2 instance under
-PM2, behind an Nginx reverse proxy, reachable at `https://api.varunaat.in`.
+PM2, behind an Nginx reverse proxy, reachable at `https://pratibimb.varunaat.in`.
 The three React frontends stay on your existing host and just point their
 `VITE_API_URL` at that domain.
 
@@ -33,18 +33,18 @@ Also: in MongoDB Atlas -> Network Access, allow the EC2 public IP.
 ## 5. HTTPS
 ```bash
 sudo apt-get install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d api.varunaat.in
+sudo certbot --nginx -d pratibimb.varunaat.in
 ```
 
 ## 6. Verify
 ```bash
-curl https://api.varunaat.in/api/health     # -> {"ok":true,...}
+curl https://pratibimb.varunaat.in/api/health     # -> {"ok":true,...}
 ```
 
 ## 7. Point the frontends at the new backend
 In each of `client-app`, `pilot-app`, `admin-app`, set `.env.production`:
 ```
-VITE_API_URL=https://api.varunaat.in/api
+VITE_API_URL=https://pratibimb.varunaat.in/api
 ```
 Rebuild (`npm run build`) and re-upload each `dist/` to your host.
 

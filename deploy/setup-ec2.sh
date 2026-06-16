@@ -11,7 +11,7 @@ APP_NAME="tower-api"
 # Resolve absolute paths up front, before any `cd`, so later steps don't break.
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)/backend"
-DOMAIN="api.varunaat.in"
+DOMAIN="pratibimb.varunaat.in"
 
 echo "==> Installing Node.js 20, git, nginx, pm2 ..."
 if ! command -v node >/dev/null 2>&1; then
