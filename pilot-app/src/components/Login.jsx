@@ -34,7 +34,8 @@ export default function Login({ onLogin }) {
     <div className="gate">
       <form className="gate-card" onSubmit={submit}>
         <div className="brand big">
-          <img src="/logo.png" className="logo-img" alt="logo" /> Pilot Login
+          <img src="/logo.png" className="brand-logo" alt="प्रतिबिम्ब:" />
+          <span className="brand-subtitle">Pilot Login</span>
         </div>
         <label>Pilot ID</label>
         <input autoFocus value={loginId} onChange={(e) => setLoginId(e.target.value)} placeholder="pilot1" />

@@ -93,17 +93,34 @@ input, select, textarea {
   letter-spacing: -.3px;
 }
 .brand.big { font-size: 22px; margin-bottom: 8px; }
-.logo-img {
-  width: 40px;
-  height: 40px;
+/* Wordmark brand logo (transparent PNG on a white plate so it stays
+   readable on the dark sidebar as well as light topbars). */
+.brand-logo {
+  height: 30px;
+  width: auto;
+  max-width: 100%;
   object-fit: contain;
+  display: block;
   background: #fff;
-  border-radius: 10px;
-  padding: 4px;
+  border-radius: 8px;
+  padding: 5px 9px;
   flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(0,0,0,.18);
 }
-.sidebar .brand .logo-img { width: 44px; height: 44px; }
+/* Sidebar: stack wordmark over the role so the wide logo fits 220px */
+.sidebar .brand { flex-direction: column; align-items: flex-start; gap: 6px; }
+.sidebar .brand-logo { height: 30px; }
+.admin-topbar-brand .brand-logo { height: 26px; padding: 4px 7px; }
+.brand-role {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--muted);
+}
+.sidebar .brand-role { color: #94a3b8; }
+.brand.big { flex-direction: column; align-items: flex-start; gap: 10px; }
+.brand.big .brand-logo { height: 40px; }
+.brand-subtitle { font-size: 15px; font-weight: 700; color: #0f172a; letter-spacing: -.2px; }
 .muted { color: var(--muted); }
 .center { text-align: center; }
 .error { color: var(--red); font-size: 13px; font-weight: 500; }

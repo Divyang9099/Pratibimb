@@ -38,8 +38,8 @@ export default function App() {
       <aside className={`sidebar${sidebarOpen ? ' sidebar--open' : ''}`}>
         <div className="sidebar-header">
           <div className="brand">
-            <img src="/logo.png" alt="" className="logo-img" />
-            प्रतिबिम्ब: <span className="muted">· Admin</span>
+            <img src="/logo.png" alt="प्रतिबिम्ब:" className="brand-logo" />
+            <span className="brand-role">Admin</span>
           </div>
           <button className="sidebar-close" onClick={() => setSidebarOpen(false)} aria-label="Close menu">✕</button>
         </div>
@@ -68,8 +68,7 @@ export default function App() {
             <span /><span /><span />
           </button>
           <div className="brand admin-topbar-brand">
-            <img src="/logo.png" alt="" className="logo-img" />
-            प्रतिबिम्ब:
+            <img src="/logo.png" alt="प्रतिबिम्ब:" className="brand-logo" />
           </div>
           <div className="admin-topbar-section">{nav.find(n => n.id === section)?.label}</div>
         </header>

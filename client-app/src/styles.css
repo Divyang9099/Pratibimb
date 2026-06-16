@@ -94,6 +94,26 @@ button:disabled { opacity: .5; cursor: default; transform: none !important; }
 }
 .brand.big { font-size: 24px; margin-bottom: 12px; }
 .logo-img { width: 38px; height: 38px; object-fit: contain; background: #fff; border-radius: 10px; padding: 4px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,.12); }
+
+/* Wordmark brand logo */
+.brand-logo {
+  height: 30px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  display: block;
+  flex-shrink: 0;
+}
+.brand-role {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--muted);
+}
+.brand.big { flex-direction: column; align-items: flex-start; gap: 10px; }
+.brand.big .brand-logo { height: 40px; }
+.brand-subtitle { font-size: 15px; font-weight: 700; color: #0f172a; letter-spacing: -.2px; }
 .muted { color: var(--muted); font-weight: 500; }
 .error { color: var(--red); font-size: 13px; font-weight: 500; }
 .error-banner {

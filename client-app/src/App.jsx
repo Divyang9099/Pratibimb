@@ -86,8 +86,8 @@ export default function App() {
       <header className="topbar">
         <div className="topbar-left">
           <div className="brand">
-            <img src="/logo.png" alt="" className="logo-img" />
-            प्रतिबिम्ब:
+            <img src="/logo.png" alt="प्रतिबिम्ब:" className="brand-logo" />
+            <span className="brand-role">Client</span>
           </div>
         </div>
         <div className="topbar-right">
