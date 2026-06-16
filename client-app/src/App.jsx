@@ -86,7 +86,7 @@ export default function App() {
       <header className="topbar">
         <div className="topbar-left">
           <div className="brand">
-            <img src="/favicon.png" alt="" className="logo-img" />
+            <img src="/logo.png" alt="" className="logo-img" />
             प्रतिबिम्ब:
           </div>
         </div>

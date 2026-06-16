@@ -93,7 +93,7 @@ button:disabled { opacity: .5; cursor: default; transform: none !important; }
   letter-spacing: -.3px;
 }
 .brand.big { font-size: 24px; margin-bottom: 12px; }
-.logo-img { width: 32px; height: 32px; object-fit: contain; border-radius: 6px; flex-shrink: 0; }
+.logo-img { width: 32px; height: 32px; object-fit: contain; background: #fff; border-radius: 8px; padding: 3px; flex-shrink: 0; }
 .muted { color: var(--muted); font-weight: 500; }
 .error { color: var(--red); font-size: 13px; font-weight: 500; }
 .error-banner {

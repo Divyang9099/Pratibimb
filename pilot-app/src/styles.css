@@ -92,7 +92,7 @@ input, select, textarea {
   letter-spacing: -.3px;
 }
 .brand.big { font-size: 24px; margin-bottom: 8px; }
-.logo-img { width: 28px; height: 28px; object-fit: contain; border-radius: 6px; flex-shrink: 0; }
+.logo-img { width: 32px; height: 32px; object-fit: contain; background: #fff; border-radius: 8px; padding: 3px; flex-shrink: 0; }
 .muted { color: var(--muted); }
 .error { color: var(--red); font-size: 13px; font-weight: 500; }
 .ok { color: var(--green); font-size: 14px; font-weight: 600; }
