@@ -3,3 +3,6 @@ dist/
 .env
 *.log
 .DS_Store
+
+# SSH / EC2 private keys — never commit these
+*.pem
