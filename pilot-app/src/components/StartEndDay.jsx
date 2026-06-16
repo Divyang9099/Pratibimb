@@ -41,6 +41,10 @@ async function fileToDataUri(file) {
 export default function StartEndDay({ mode, projects, projectId, onProjectChange, onDayEnded }) {
   const isStart = mode === 'start';
 
+  // Whether this project requires a field photo on Start/End Day.
+  const selectedProject = projects.find((p) => p._id === projectId);
+  const photoRequired = selectedProject ? selectedProject.requirePhoto !== false : true;
+
   const [date, setDate] = useState(today());
   const [towerNo, setTowerNo] = useState('');
   const [image, setImage] = useState('');
@@ -79,6 +83,10 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
     setMsg(null);
     if (!projectId) { setMsg({ type: 'err', text: 'Select a project first' }); return; }
     if (!isNonWorking && !towerNo) { setMsg({ type: 'err', text: 'Tower number is required' }); return; }
+    if (!isNonWorking && photoRequired && !image) {
+      setMsg({ type: 'err', text: 'A field photo is required for this project.' });
+      return;
+    }
     if (isNonWorking && !note.trim()) {
       setMsg({ type: 'err', text: 'Please enter a reason for the non-working day.' });
       return;
@@ -225,10 +233,10 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
             </>
           )}
 
-          {/* Image — hidden for non-working */}
+          {/* Image — hidden for non-working. Required only if the project asks for it. */}
           {!isNonWorking && (
             <>
-              <label>Field image</label>
+              <label>{photoRequired ? 'Field image *' : 'Field image (optional)'}</label>
               <input
                 type="file"
                 accept="image/*"

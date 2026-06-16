@@ -149,7 +149,7 @@ router.get('/projects', async (req, res) => {
 });
 
 router.post('/projects', async (req, res) => {
-  const { name, client, totalTowers, kml, description, startDate, generateTowers } = req.body || {};
+  const { name, client, totalTowers, kml, description, startDate, generateTowers, requirePhoto } = req.body || {};
   if (!name || !client) return res.status(400).json({ error: 'name and client are required' });
 
   const project = await Project.create({
@@ -159,6 +159,7 @@ router.post('/projects', async (req, res) => {
     kml: kml || '',
     description,
     startDate: startDate ? new Date(startDate) : undefined,
+    requirePhoto: requirePhoto !== false,
   });
 
   // Optionally pre-create Tower docs numbered 1..totalTowers.
@@ -177,10 +178,12 @@ router.post('/projects', async (req, res) => {
 });
 
 router.put('/projects/:id', async (req, res) => {
-  const { name, totalTowers, kml, description, startDate, active } = req.body || {};
+  const { name, totalTowers, kml, description, startDate, active, requirePhoto } = req.body || {};
+  const set = { name, totalTowers, kml, description, startDate, active };
+  if (requirePhoto != null) set.requirePhoto = requirePhoto;
   const project = await Project.findByIdAndUpdate(
     req.params.id,
-    { $set: { name, totalTowers, kml, description, startDate, active } },
+    { $set: set },
     { new: true }
   );
   if (!project) return res.status(404).json({ error: 'Project not found' });

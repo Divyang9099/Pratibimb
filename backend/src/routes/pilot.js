@@ -39,7 +39,7 @@ function notify(projectId) {
 router.get('/projects', async (req, res) => {
   try {
     const projects = await Project.find({ active: true })
-      .select('name totalTowers client')
+      .select('name totalTowers client requirePhoto')
       .sort({ createdAt: -1 })
       .lean();
     res.json({ projects });
@@ -99,6 +99,11 @@ router.post('/start-day', async (req, res) => {
       return res.status(201).json({ log });
     }
 
+    const project = await Project.findById(projectId).select('requirePhoto').lean();
+    if (project && project.requirePhoto !== false && !image) {
+      return res.status(400).json({ error: 'A field photo is required to start the day for this project.' });
+    }
+
     const imageUrl = await uploadImage(image || '');
     const log = await DailyLog.create({
       project: projectId,
@@ -131,6 +136,11 @@ router.post('/end-day', async (req, res) => {
     }
     if (logs.find((l) => l.type === 'end')) {
       return res.status(409).json({ error: 'Day already ended.' });
+    }
+
+    const project = await Project.findById(projectId).select('requirePhoto').lean();
+    if (project && project.requirePhoto !== false && !image) {
+      return res.status(400).json({ error: 'A field photo is required to end the day for this project.' });
     }
 
     const imageUrl = await uploadImage(image || '');

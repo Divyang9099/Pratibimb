@@ -15,6 +15,7 @@ export default function Projects() {
     startDate: today(),
     kml: '',
     generateTowers: true,
+    requirePhoto: true,
   });
   const [msg, setMsg] = useState('');
 
@@ -33,7 +34,7 @@ export default function Projects() {
     }
     try {
       await api.post('/admin/projects', { ...form, totalTowers: Number(form.totalTowers) });
-      setForm({ name: '', client: '', totalTowers: 20, startDate: today(), kml: '', generateTowers: true });
+      setForm({ name: '', client: '', totalTowers: 20, startDate: today(), kml: '', generateTowers: true, requirePhoto: true });
       load();
     } catch (e2) {
       setMsg(e2.response?.data?.error || 'Failed');
@@ -55,6 +56,7 @@ export default function Projects() {
       totalTowers: p.totalTowers,
       startDate: p.startDate ? new Date(p.startDate).toISOString().slice(0, 10) : '',
       active: p.active,
+      requirePhoto: p.requirePhoto !== false,
       kml: '', // only sent if a new file is chosen
     });
   }
@@ -65,6 +67,7 @@ export default function Projects() {
       totalTowers: Number(editForm.totalTowers),
       startDate: editForm.startDate || undefined,
       active: editForm.active,
+      requirePhoto: editForm.requirePhoto,
     };
     if (editForm.kml) body.kml = editForm.kml; // replacing the KML re-syncs the map
     await api.put(`/admin/projects/${id}`, body);
@@ -130,6 +133,14 @@ export default function Projects() {
           />
           Auto-create towers numbered 1…{form.totalTowers}
         </label>
+        <label className="checkrow">
+          <input
+            type="checkbox"
+            checked={form.requirePhoto}
+            onChange={(e) => setForm({ ...form, requirePhoto: e.target.checked })}
+          />
+          Require a field photo from the pilot on Start &amp; End Day
+        </label>
         {msg && <div className="error">{msg}</div>}
         <button type="submit">Create project</button>
       </form>
@@ -156,6 +167,9 @@ export default function Projects() {
                   <td className="actions">
                     <label className="checkrow sm">
                       <input type="checkbox" checked={editForm.active} onChange={(e) => setEditForm({ ...editForm, active: e.target.checked })} /> Active
+                    </label>
+                    <label className="checkrow sm">
+                      <input type="checkbox" checked={editForm.requirePhoto} onChange={(e) => setEditForm({ ...editForm, requirePhoto: e.target.checked })} /> Photo
                     </label>
                     <label className="file-mini">
                       Replace KML

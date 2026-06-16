@@ -13,6 +13,8 @@ const projectSchema = new mongoose.Schema(
     description: { type: String, trim: true },
     startDate: { type: Date },
     active: { type: Boolean, default: true },
+    // Whether pilots must attach a field photo on Start/End Day for this project.
+    requirePhoto: { type: Boolean, default: true },
   },
   { timestamps: true }
 );
