@@ -106,9 +106,6 @@ input, select, textarea {
   padding: 5px 9px;
   flex-shrink: 0;
 }
-/* Sidebar: stack wordmark over the role so the wide logo fits 220px */
-.sidebar .brand { flex-direction: column; align-items: flex-start; gap: 6px; }
-.sidebar .brand-logo { height: 30px; }
 .admin-topbar-brand .brand-logo { height: 26px; padding: 4px 7px; }
 .brand-role {
   font-size: 12px;
@@ -117,7 +114,6 @@ input, select, textarea {
   letter-spacing: .6px;
   color: var(--muted);
 }
-.sidebar .brand-role { color: #94a3b8; }
 .brand.big { flex-direction: column; align-items: flex-start; gap: 10px; }
 .brand.big .brand-logo { height: 40px; }
 .brand-subtitle { font-size: 15px; font-weight: 700; color: #0f172a; letter-spacing: -.2px; }
@@ -153,13 +149,36 @@ input, select, textarea {
 }
 .sidebar-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 20px;
-  padding: 0 4px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
-.sidebar .brand { color: #fff; }
-.sidebar .brand .muted { color: #94a3b8; }
+/* White logo card at the top of the sidebar so the wordmark stays crisp */
+.sidebar-logo {
+  flex: 1;
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 10px rgba(0,0,0,.22);
+}
+.sidebar-logo img {
+  width: 100%;
+  max-width: 150px;
+  height: auto;
+  display: block;
+}
+.sidebar-role {
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  margin: 0 4px 18px;
+}
 .sidebar-close {
   display: none;
   background: transparent;

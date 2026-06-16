@@ -37,12 +37,12 @@ export default function App() {
       {/* Sidebar drawer */}
       <aside className={`sidebar${sidebarOpen ? ' sidebar--open' : ''}`}>
         <div className="sidebar-header">
-          <div className="brand">
-            <img src="/logo.png" alt="प्रतिबिम्ब:" className="brand-logo" />
-            <span className="brand-role">Admin</span>
+          <div className="sidebar-logo">
+            <img src="/logo.png" alt="प्रतिबिम्ब:" />
           </div>
           <button className="sidebar-close" onClick={() => setSidebarOpen(false)} aria-label="Close menu">✕</button>
         </div>
+        <div className="sidebar-role">Admin Panel</div>
         <nav>
           {nav.map((n) => (
             <button
