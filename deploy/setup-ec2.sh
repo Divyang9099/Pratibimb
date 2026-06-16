@@ -8,7 +8,9 @@
 set -euo pipefail
 
 APP_NAME="tower-api"
-APP_DIR="$(cd "$(dirname "$0")/.." && pwd)/backend"
+# Resolve absolute paths up front, before any `cd`, so later steps don't break.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)/backend"
 DOMAIN="api.varunaat.in"
 
 echo "==> Installing Node.js 20, git, nginx, pm2 ..."
@@ -33,10 +35,13 @@ fi
 echo "==> Starting app under PM2 ..."
 pm2 start src/server.js --name "$APP_NAME" || pm2 restart "$APP_NAME"
 pm2 save
-sudo env PATH=$PATH pm2 startup systemd -u "$USER" --hp "$HOME" | tail -n 1 | bash || true
+# Configure PM2 to start on boot. The `pm2 startup` output's last line is the
+# command that must run with sudo; capture and execute it.
+STARTUP_CMD="$(pm2 startup systemd -u "$USER" --hp "$HOME" | grep '^sudo' | tail -n 1 || true)"
+[ -n "$STARTUP_CMD" ] && eval "$STARTUP_CMD" || true
 
 echo "==> Configuring nginx reverse proxy ..."
-sudo cp "$(dirname "$0")/nginx-tower-api.conf" /etc/nginx/sites-available/tower-api
+sudo cp "$SCRIPT_DIR/nginx-tower-api.conf" /etc/nginx/sites-available/tower-api
 sudo ln -sf /etc/nginx/sites-available/tower-api /etc/nginx/sites-enabled/tower-api
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
