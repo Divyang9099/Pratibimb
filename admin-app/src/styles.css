@@ -93,7 +93,17 @@ input, select, textarea {
   letter-spacing: -.3px;
 }
 .brand.big { font-size: 22px; margin-bottom: 8px; }
-.logo-img { width: 32px; height: 32px; object-fit: contain; background: #fff; border-radius: 8px; padding: 3px; flex-shrink: 0; }
+.logo-img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 10px;
+  padding: 4px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0,0,0,.18);
+}
+.sidebar .brand .logo-img { width: 44px; height: 44px; }
 .muted { color: var(--muted); }
 .center { text-align: center; }
 .error { color: var(--red); font-size: 13px; font-weight: 500; }
