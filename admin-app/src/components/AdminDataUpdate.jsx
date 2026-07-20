@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { api } from '../api';
+import { useLiveData } from '../useProjectLive';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -21,11 +22,16 @@ export default function AdminDataUpdate({ projectId, onSaved }) {
   const [issueInput, setIssueInput] = useState('');
   const issueInputRef = useRef(null);
 
-  useEffect(() => {
-    api.get('/admin/pilots')
-      .then(r => setPilots((r.data.pilots || []).filter(p => p.active !== false)))
-      .catch(() => {});
-  }, []);
+  const loadPilots = () => api.get('/admin/pilots')
+    .then(r => setPilots((r.data.pilots || []).filter(p => p.active !== false)))
+    .catch(() => {});
+
+  useEffect(() => { loadPilots(); }, []);
+
+  // A pilot added or deactivated elsewhere shows up in the dropdown without a
+  // reload. The tower rows below are deliberately not touched — they may hold
+  // unsaved toggles.
+  useLiveData(loadPilots);
 
   useEffect(() => {
     if (issueModal) setTimeout(() => issueInputRef.current?.focus(), 50);

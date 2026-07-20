@@ -23,11 +23,16 @@ export default function Projects() {
   const [notice, setNotice] = useState('');
 
   const load = () => api.get('/admin/projects').then((r) => setProjects(r.data.projects));
+  const loadClients = () => api.get('/admin/clients').then((r) => setClients(r.data.clients));
+
   // Refresh whenever anything changes server-side, from any app or user.
-  useLiveData(load);
+  // The client dropdown is included: a client added on the Clients screen
+  // must be selectable here without a reload.
+  useLiveData(() => { load(); loadClients(); });
+
   useEffect(() => {
     load();
-    api.get('/admin/clients').then((r) => setClients(r.data.clients));
+    loadClients();
   }, []);
 
   async function create(e) {

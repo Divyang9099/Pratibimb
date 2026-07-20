@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { api } from '../api';
-import { useProjectLive } from '../useProjectLive';
+import { useProjectLive, useLiveData } from '../useProjectLive';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -45,11 +45,15 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
     else loadTableRef.current?.();
   });
 
-  useEffect(() => {
-    api.get('/pilot/pilots')
-      .then(r => setPilots(r.data.pilots))
-      .catch(() => {});
-  }, []);
+  const loadPilots = () => api.get('/pilot/pilots')
+    .then(r => setPilots(r.data.pilots))
+    .catch(() => {});
+
+  useEffect(() => { loadPilots(); }, []);
+
+  // Keep the pilot dropdown current. The tower rows are handled separately
+  // below, since they can hold unsaved toggles.
+  useLiveData(loadPilots);
 
   useEffect(() => {
     if (issueModal) {

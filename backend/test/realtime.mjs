@@ -165,6 +165,23 @@ await expectGlobal('pilot POST /pilot/data-update', () =>
   }, pilotToken)
 );
 
+// The exact reported bug: an admin adds a project for a client who already has
+// the dashboard open. The broadcast must fire AND the client's own endpoint
+// must then report the new project — a signal with nothing behind it is
+// useless, so assert both halves.
+console.log('\n--- reported bug: new project must reach an open client ---');
+{
+  const before = globals;
+  const created = await post('/admin/projects', { name: 'Live Added Line', client: String(client._id) }, adminToken);
+  await new Promise((r) => setTimeout(r, 500));
+  check('new project broadcasts data-change', globals > before && created.status < 400);
+
+  const access = await (await post('/client/access', { key: 'TWR-TEST0001' })).json();
+  const names = (access.projects || []).map((p) => p.name);
+  check('client /access now lists the new project', names.includes('Live Added Line'));
+  check('client /access still lists the original project', names.includes('Line A2'));
+}
+
 // A failed mutation must not claim success to every open screen.
 const beforeBad = globals;
 await put(`/admin/pilots/000000000000000000000000`, { name: 'nope' }, adminToken);

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { accessWithKey, fetchDashboard, keyStore, pageStore } from './api';
-import { useProjectLive } from './useProjectLive';
+import { useProjectLive, useLiveData } from './useProjectLive';
 import { warmBackend } from './components/WarmUp.jsx';
 import KeyGate from './components/KeyGate.jsx';
 import Dashboard from './components/Dashboard.jsx';
@@ -64,6 +64,18 @@ export default function App() {
   // Live updates: the server pushes project-update whenever a pilot or admin
   // changes anything on this project, so the dashboard reflects it instantly.
   useProjectLive(projectId, refresh);
+
+  // The project list itself also has to stay current — a project added,
+  // renamed or deactivated for this client must appear without the client
+  // re-entering their key. Only `projects` is replaced, so the stored key and
+  // the current selection survive.
+  useLiveData(() => {
+    const s = sessionRef.current;
+    if (!s?.key) return;
+    accessWithKey(s.key)
+      .then((data) => setSession((prev) => (prev ? { ...prev, projects: data.projects } : prev)))
+      .catch(() => { /* keep the current list on a transient failure */ });
+  });
 
   // First load for a project, plus a slow poll as a safety net in case a
   // socket event is missed or the connection is down.
