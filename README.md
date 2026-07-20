@@ -74,13 +74,24 @@ cd pilot-app   && npm run dev     # http://localhost:5174
 cd admin-app   && npm run dev     # http://localhost:5175
 ```
 
-## Demo credentials (after seeding)
+## Local logins (after seeding)
 
-| Role   | Where                  | Credentials              |
-|--------|------------------------|--------------------------|
-| Admin  | http://localhost:5175  | `admin` / `admin123`     |
-| Pilot  | http://localhost:5174  | `pilot1` / `pilot123`    |
-| Client | http://localhost:5173  | key `TWR-DEMO1234`       |
+`npm run seed` wipes every collection and creates one admin and one pilot from
+your environment. No passwords are hardcoded or printed — this repo is public,
+so a password written here is a password published to the world.
+
+Set these in `backend/.env` before seeding:
+
+```
+SEED_ADMIN_LOGIN=      SEED_ADMIN_PASSWORD=
+SEED_PILOT_LOGIN=      SEED_PILOT_PASSWORD=
+```
+
+| Role   | Where                  | Credentials                        |
+|--------|------------------------|------------------------------------|
+| Admin  | http://localhost:5175  | your `SEED_ADMIN_*` values          |
+| Pilot  | http://localhost:5174  | your `SEED_PILOT_*` values          |
+| Client | http://localhost:5173  | the access key shown in the admin UI |
 
 ## API surface
 
