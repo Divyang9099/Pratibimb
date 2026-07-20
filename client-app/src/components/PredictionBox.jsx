@@ -1,5 +1,7 @@
+// Year included: these are projections that can land months out, so "19 Jul"
+// alone is ambiguous about which year is meant.
 const fmtDate = (d) =>
-  d ? new Date(d).toLocaleDateString(undefined, { day: '2-digit', month: 'short' }) : '—';
+  d ? new Date(d).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
 // Forward-looking estimates derived from running daily averages.
 export default function PredictionBox({ prediction }) {

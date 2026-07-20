@@ -1,5 +1,5 @@
 const fmtDate = (d) =>
-  d ? new Date(d).toLocaleDateString(undefined, { day: '2-digit', month: 'short' }) : '—';
+  d ? new Date(d).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
 // The four headline KPIs across the top of the client dashboard.
 export default function KpiCards({ kpi }) {

@@ -75,7 +75,13 @@ export function notifyProjectUpdate(projectId) {
 // project-update alone can never reach these: they are not scoped to a
 // project, so there is no room to deliver into.
 export function notifyDataChange(resource) {
-  if (io) io.emit('data-change', { resource });
+  if (!io) return;
+  io.emit('data-change', { resource });
+  // Logged with the live client count so a "live updates aren't working"
+  // report can be diagnosed from the logs alone: 0 clients means nobody was
+  // subscribed, which is a very different problem from nothing being sent.
+  const clients = io.engine?.clientsCount ?? 0;
+  console.log(`✓ data-change → ${clients} client(s) | ${resource}`);
 }
 
 // Express middleware: after ANY successful mutating request on the router it
