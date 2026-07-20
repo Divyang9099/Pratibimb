@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { api } from '../api';
+import { useProjectLive } from '../useProjectLive';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -8,6 +9,8 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [rows, setRows] = useState(null);
+  const rowsRef = useRef(null);
+  rowsRef.current = rows;
   const [msg, setMsg] = useState(null);
   const [busy, setBusy] = useState(false);
   const [pilots, setPilots] = useState([]);
@@ -17,6 +20,19 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
   const [issueModal, setIssueModal] = useState(null); // { idx, towerNo }
   const [issueInput, setIssueInput] = useState('');
   const issueInputRef = useRef(null);
+
+  // A loaded table holds unsaved toggles, so a live update must never reload
+  // it automatically — that would silently discard a pilot's field work. We
+  // surface a notice instead and let them choose when to reload.
+  const [staleNotice, setStaleNotice] = useState(false);
+  const selfSaveRef = useRef(0);
+
+  useProjectLive(projectId, () => {
+    // Ignore the echo of our own save.
+    if (Date.now() - selfSaveRef.current < 5000) return;
+    // Nothing loaded means nothing to protect — the next load is fresh anyway.
+    if (rowsRef.current) setStaleNotice(true);
+  });
 
   useEffect(() => {
     api.get('/pilot/pilots')
@@ -49,6 +65,7 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
     try {
       const { data } = await api.get(`/pilot/towers/${projectId}`, { params: { from, to } });
       setRows(data.rows.map(r => ({ ...r, issueNote: '' })));
+      setStaleNotice(false);
     } catch (e) {
       setMsg({ type: 'err', text: e.response?.data?.error || 'Failed to load towers' });
     } finally {
@@ -118,6 +135,9 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
     setBusy(true);
     setMsg(null);
     try {
+      // The server broadcasts project-update on save. Mark the window so our
+      // own write doesn't come back as a "changed elsewhere" notice.
+      selfSaveRef.current = Date.now();
       const { data } = await api.post('/pilot/data-update', {
         projectId,
         date,
@@ -125,6 +145,7 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
         pilotId: selectedPilotId,
       });
       setMsg({ type: 'ok', text: `Saved ${data.updated} towers.` });
+      setStaleNotice(false);
     } catch (e) {
       setMsg({ type: 'err', text: e.response?.data?.error || 'Failed to save' });
     } finally {
@@ -195,6 +216,21 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
 
       {rows && (
         <>
+          {staleNotice && (
+            <div className="status-banner warn" style={{ marginTop: 8 }}>
+              Someone else updated this project. Your ticks below are still unsaved —
+              reload to see their changes, or save yours first.
+              <button
+                className="ghost"
+                style={{ marginLeft: 10 }}
+                onClick={loadTable}
+                disabled={busy}
+              >
+                Reload table
+              </button>
+            </div>
+          )}
+
           {alreadyCapturedCount > 0 && (
             <div className="status-banner warn" style={{ marginTop: 8 }}>
               {alreadyCapturedCount} tower{alreadyCapturedCount > 1 ? 's' : ''} in this range{' '}

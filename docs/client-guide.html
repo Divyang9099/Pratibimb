@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Client Guide — प्रतिबिम्ब:</title>
+<style>
+  :root {
+    --primary: #1a3a6b;
+    --accent:  #2e86de;
+    --green:   #27ae60;
+    --orange:  #e67e22;
+    --red:     #e74c3c;
+    --purple:  #8e44ad;
+    --bg:      #f4f7fc;
+    --card:    #ffffff;
+    --border:  #d5e3f5;
+    --text:    #2c3e50;
+    --muted:   #7f8c8d;
+    --pill-bg: #eaf2ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+
+  nav {
+    background: var(--primary);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 32px;
+    height: 60px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  }
+  nav .logo  { font-size: 1.3rem; font-weight: 700; }
+  nav .badge { background: var(--accent); font-size: .7rem; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+  nav ul { display: flex; gap: 4px; list-style: none; margin-left: auto; }
+  nav ul a { color: rgba(255,255,255,.8); text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: .85rem; transition: background .15s; }
+  nav ul a:hover { background: rgba(255,255,255,.15); color: #fff; }
+
+  .hero {
+    background: linear-gradient(135deg, var(--primary) 0%, #1d4ed8 100%);
+    color: #fff;
+    padding: 64px 32px;
+    text-align: center;
+  }
+  .hero h1 { font-size: 2.4rem; font-weight: 800; margin-bottom: 12px; }
+  .hero p  { font-size: 1.1rem; opacity: .85; max-width: 600px; margin: 0 auto 28px; }
+  .hero .chips { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .hero .chip  { background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3); border-radius: 20px; padding: 4px 14px; font-size: .82rem; }
+
+  .layout { display: grid; grid-template-columns: 240px 1fr; max-width: 1200px; margin: 40px auto; gap: 32px; padding: 0 24px 80px; }
+  @media(max-width:768px){ .layout { grid-template-columns: 1fr; } .sidebar { display: none; } }
+
+  .sidebar { position: sticky; top: 76px; height: fit-content; }
+  .sidebar-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .sidebar-card h4 { font-size: .75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 12px; }
+  .sidebar-card a  { display: block; color: var(--text); text-decoration: none; padding: 6px 10px; border-radius: 6px; font-size: .88rem; margin-bottom: 2px; transition: background .12s; }
+  .sidebar-card a:hover { background: var(--pill-bg); color: var(--accent); }
+
+  .content section { margin-bottom: 48px; }
+  h2 { font-size: 1.6rem; font-weight: 700; color: var(--primary); margin-bottom: 8px; padding-bottom: 10px; border-bottom: 2px solid var(--border); }
+  h3 { font-size: 1.15rem; font-weight: 600; color: var(--primary); margin: 24px 0 10px; }
+  p  { margin-bottom: 12px; }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+
+  .kpi-showcase { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin: 20px 0; }
+  @media(min-width:600px){ .kpi-showcase { grid-template-columns: repeat(4, 1fr); } }
+  .kpi-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px 16px; text-align: center; }
+  .kpi-card .icon { font-size: 2rem; display: block; margin-bottom: 8px; }
+  .kpi-card .num  { font-size: 1.8rem; font-weight: 800; display: block; }
+  .kpi-card .lbl  { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .kpi-card.blue   { border-top: 4px solid var(--accent); }
+  .kpi-card.green  { border-top: 4px solid var(--green); }
+  .kpi-card.orange { border-top: 4px solid var(--orange); }
+  .kpi-card.purple { border-top: 4px solid var(--purple); }
+
+  .steps { counter-reset: step; display: flex; flex-direction: column; gap: 16px; }
+  .step  { display: flex; gap: 16px; align-items: flex-start; }
+  .step-num { counter-increment: step; min-width: 36px; height: 36px; background: var(--accent); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .9rem; flex-shrink: 0; }
+  .step-num::before { content: counter(step); }
+  .step-body h4 { font-weight: 600; margin-bottom: 4px; }
+  .step-body p  { color: var(--muted); font-size: .9rem; margin: 0; }
+
+  .doc-table { width: 100%; border-collapse: collapse; font-size: .88rem; margin-bottom: 16px; }
+  .doc-table th { background: var(--primary); color: #fff; padding: 10px 14px; text-align: left; font-weight: 600; }
+  .doc-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .doc-table tr:nth-child(even) td { background: #f7f9fd; }
+
+  .callout { border-radius: 10px; padding: 16px 20px; margin: 16px 0; display: flex; gap: 12px; align-items: flex-start; }
+  .callout.info    { background: var(--pill-bg); border-left: 4px solid var(--accent); }
+  .callout.warning { background: #fff8e1; border-left: 4px solid var(--orange); }
+  .callout.success { background: #e8f5e9; border-left: 4px solid var(--green); }
+  .callout .icon   { font-size: 1.2rem; flex-shrink: 0; }
+  .callout p       { margin: 0; font-size: .9rem; }
+
+  /* dashboard diagram */
+  .dash-diagram { background: #0f172a; border-radius: 16px; padding: 24px; margin: 20px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .dash-panel { background: #1e293b; border-radius: 10px; padding: 14px; }
+  .dash-panel.wide { grid-column: span 2; }
+  .dash-panel h5 { color: #94a3b8; font-size: .72rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .dash-panel .mock-bar { height: 8px; border-radius: 4px; margin-bottom: 6px; }
+  .dash-panel .kpi-row  { display: flex; gap: 10px; }
+  .dash-panel .kpi-mini { flex: 1; background: #0f172a; border-radius: 8px; padding: 10px 8px; text-align: center; }
+  .dash-panel .kpi-mini span { display: block; }
+  .dash-panel .kpi-mini .v { color: #fff; font-weight: 700; font-size: 1.1rem; }
+  .dash-panel .kpi-mini .l { color: #64748b; font-size: .68rem; }
+  .dash-panel .mock-map { height: 100px; background: linear-gradient(135deg, #1e3a5f, #0f2d45); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #64748b; font-size: .8rem; }
+  .dash-panel .mock-chart { height: 70px; background: #0f172a; border-radius: 8px; display: flex; align-items: flex-end; gap: 4px; padding: 8px; }
+  .mock-bar-v { background: var(--accent); border-radius: 2px 2px 0 0; width: 100%; }
+
+  .map-legend { display: flex; gap: 20px; flex-wrap: wrap; margin: 12px 0; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: .85rem; }
+  .dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+
+  footer { background: var(--primary); color: rgba(255,255,255,.6); text-align: center; padding: 24px; font-size: .82rem; }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">प्रतिबिम्ब:</span>
+  <span class="badge">Client Guide</span>
+  <ul>
+    <li><a href="admin-guide.html">Admin Guide</a></li>
+    <li><a href="pilot-guide.html">Pilot Guide</a></li>
+  </ul>
+</nav>
+
+<div class="hero">
+  <h1>Client Dashboard Guide</h1>
+  <p>Track your tower inspection project in real time — view progress metrics, maps, photos, and completion predictions from anywhere.</p>
+  <div class="chips">
+    <span class="chip">📊 Live KPI Metrics</span>
+    <span class="chip">🗺️ Tower Map</span>
+    <span class="chip">📈 Progress Charts</span>
+    <span class="chip">📸 Field Photos</span>
+    <span class="chip">🔮 Completion Forecast</span>
+  </div>
+</div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-card">
+      <h4>On This Page</h4>
+      <a href="#overview">Overview</a>
+      <a href="#access">Getting Access</a>
+      <a href="#dashboard">The Dashboard</a>
+      <a href="#kpis">KPI Cards</a>
+      <a href="#map">Tower Map</a>
+      <a href="#charts">Progress Charts</a>
+      <a href="#prediction">Completion Forecast</a>
+      <a href="#photos">Field Photos</a>
+      <a href="#issues">Issues & Non-Working Days</a>
+      <a href="#faq">FAQ</a>
+    </div>
+  </aside>
+
+  <main class="content">
+
+    <!-- OVERVIEW -->
+    <section id="overview">
+      <h2>Overview</h2>
+      <p>Pratibimb gives you a <strong>live, read-only window</strong> into your tower inspection project. No need to call or email the team — all progress is updated in real time as pilots log their work in the field.</p>
+
+      <div class="dash-diagram">
+        <div class="dash-panel wide">
+          <h5>KPI Summary</h5>
+          <div class="kpi-row">
+            <div class="kpi-mini"><span class="v">250</span><span class="l">Towers</span></div>
+            <div class="kpi-mini"><span class="v" style="color:#27ae60">68%</span><span class="l">Captured</span></div>
+            <div class="kpi-mini"><span class="v" style="color:#2e86de">52%</span><span class="l">Uploaded</span></div>
+            <div class="kpi-mini"><span class="v" style="color:#e67e22">14d</span><span class="l">Remaining</span></div>
+          </div>
+        </div>
+        <div class="dash-panel">
+          <h5>Tower Map</h5>
+          <div class="mock-map">🗺️ Live tower locations</div>
+        </div>
+        <div class="dash-panel">
+          <h5>Daily Activity</h5>
+          <div class="mock-chart">
+            <div class="mock-bar-v" style="height:30%"></div>
+            <div class="mock-bar-v" style="height:55%"></div>
+            <div class="mock-bar-v" style="height:80%"></div>
+            <div class="mock-bar-v" style="height:45%"></div>
+            <div class="mock-bar-v" style="height:90%"></div>
+            <div class="mock-bar-v" style="height:60%"></div>
+            <div class="mock-bar-v" style="height:70%"></div>
+          </div>
+        </div>
+        <div class="dash-panel">
+          <h5>Cumulative Progress</h5>
+          <div class="mock-chart">
+            <div class="mock-bar-v" style="height:20%;background:#27ae60"></div>
+            <div class="mock-bar-v" style="height:35%;background:#27ae60"></div>
+            <div class="mock-bar-v" style="height:50%;background:#27ae60"></div>
+            <div class="mock-bar-v" style="height:65%;background:#27ae60"></div>
+            <div class="mock-bar-v" style="height:75%;background:#27ae60"></div>
+            <div class="mock-bar-v" style="height:85%;background:#27ae60"></div>
+            <div class="mock-bar-v" style="height:90%;background:#27ae60"></div>
+          </div>
+        </div>
+        <div class="dash-panel">
+          <h5>Forecast</h5>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">
+            <div style="background:#0f172a;border-radius:6px;padding:8px;text-align:center"><span style="color:#64748b;font-size:.65rem">Est. Capture Done</span><br><span style="color:#fff;font-weight:700;font-size:.85rem">Jul 28</span></div>
+            <div style="background:#0f172a;border-radius:6px;padding:8px;text-align:center"><span style="color:#64748b;font-size:.65rem">Est. Upload Done</span><br><span style="color:#fff;font-weight:700;font-size:.85rem">Aug 5</span></div>
+            <div style="background:#0f172a;border-radius:6px;padding:8px;text-align:center"><span style="color:#64748b;font-size:.65rem">Daily Avg Capture</span><br><span style="color:#27ae60;font-weight:700;font-size:.85rem">8.2 towers</span></div>
+            <div style="background:#0f172a;border-radius:6px;padding:8px;text-align:center"><span style="color:#64748b;font-size:.65rem">Days Remaining</span><br><span style="color:#e67e22;font-weight:700;font-size:.85rem">14 days</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACCESS -->
+    <section id="access">
+      <h2>Getting Access</h2>
+      <p>You don't need a username or password. You access your dashboard with a unique <strong>Access Key</strong> provided by your project manager.</p>
+
+      <div class="steps">
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Open the Client Portal</h4><p>Go to <strong>https://client.varunaat.in</strong> in any browser.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Enter your Access Key</h4><p>Paste the key your project manager shared with you (it looks like a long code, e.g. <code>a1b2c3d4e5f6...</code>).</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Click "Access Dashboard"</h4><p>Your project list loads. If you have multiple projects, they all appear here.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Select a Project</h4><p>Choose from the dropdown to view its dashboard.</p></div></div>
+      </div>
+
+      <div class="callout warning">
+        <span class="icon">🔑</span>
+        <p>Keep your access key private. Anyone with this key can view your project data. If it is compromised, ask your project manager to rotate it — a new key will be issued immediately.</p>
+      </div>
+
+      <div class="callout info">
+        <span class="icon">💡</span>
+        <p>If you see <strong>"Server is warming up — retrying automatically"</strong>, just wait 30–60 seconds. The backend is starting up and the app will retry automatically.</p>
+      </div>
+    </section>
+
+    <!-- DASHBOARD -->
+    <section id="dashboard">
+      <h2>The Dashboard</h2>
+      <p>Once you select a project, you see the full dashboard. It auto-refreshes every 30 seconds so you always see the latest data without reloading the page.</p>
+
+      <table class="doc-table">
+        <tr><th>Section</th><th>What it shows</th></tr>
+        <tr><td>📊 KPI Cards</td><td>Four headline numbers: total towers, capture %, upload %, days remaining</td></tr>
+        <tr><td>🗺️ Tower Map</td><td>All towers plotted on a map with colour-coded status</td></tr>
+        <tr><td>📅 Daily Activity Chart</td><td>Bar chart of towers captured vs uploaded per day</td></tr>
+        <tr><td>📈 Cumulative Chart</td><td>Line chart showing overall capture and upload progress over time</td></tr>
+        <tr><td>🔮 Prediction Box</td><td>Estimated completion dates based on current pace</td></tr>
+        <tr><td>📸 Field Photos</td><td>Photos uploaded by pilots from the field</td></tr>
+        <tr><td>⚠️ Issues & Non-Working Days</td><td>Tower problems and days when no work was possible</td></tr>
+      </table>
+    </section>
+
+    <!-- KPIs -->
+    <section id="kpis">
+      <h2>KPI Cards</h2>
+      <div class="kpi-showcase">
+        <div class="kpi-card blue">
+          <span class="icon">🗼</span>
+          <span class="num">250</span>
+          <span class="lbl">Total Towers</span>
+        </div>
+        <div class="kpi-card green">
+          <span class="icon">📸</span>
+          <span class="num">68%</span>
+          <span class="lbl">Data Captured</span>
+        </div>
+        <div class="kpi-card orange">
+          <span class="icon">☁️</span>
+          <span class="num">52%</span>
+          <span class="lbl">Data Uploaded</span>
+        </div>
+        <div class="kpi-card purple">
+          <span class="icon">⏳</span>
+          <span class="num">14d</span>
+          <span class="lbl">Days Remaining</span>
+        </div>
+      </div>
+
+      <table class="doc-table">
+        <tr><th>KPI</th><th>What it means</th></tr>
+        <tr><td><strong>Total Towers</strong></td><td>The total number of towers to be inspected in this project</td></tr>
+        <tr><td><strong>Data Captured %</strong></td><td>Percentage of towers where the drone has flown and collected data</td></tr>
+        <tr><td><strong>Data Uploaded %</strong></td><td>Percentage of towers where collected data has been processed and uploaded</td></tr>
+        <tr><td><strong>Days Remaining</strong></td><td>Calendar days remaining until the project's estimated end date</td></tr>
+      </table>
+
+      <div class="callout info">
+        <span class="icon">💡</span>
+        <p><strong>Captured vs Uploaded:</strong> Capture happens in the field (drone collects data). Upload happens later when the pilot processes and sends the data. Upload always lags slightly behind capture — this is normal.</p>
+      </div>
+    </section>
+
+    <!-- MAP -->
+    <section id="map">
+      <h2>Tower Map</h2>
+      <p>The interactive map shows every tower's location and status as a coloured dot. You can zoom, pan, and click towers for details.</p>
+
+      <div class="map-legend">
+        <div class="legend-item"><div class="dot" style="background:#27ae60"></div> Captured & Uploaded</div>
+        <div class="legend-item"><div class="dot" style="background:#f39c12"></div> Captured, Upload Pending</div>
+        <div class="legend-item"><div class="dot" style="background:#e74c3c"></div> Not Yet Captured</div>
+        <div class="legend-item"><div class="dot" style="background:#8e44ad"></div> Has an Issue</div>
+      </div>
+
+      <div class="callout info">
+        <span class="icon">🗺️</span>
+        <p>The map also shows the inspection <strong>route line</strong> connecting all towers in order, so you can follow the team's planned path. Towers only appear on the map if a KML file was uploaded when the project was created.</p>
+      </div>
+    </section>
+
+    <!-- CHARTS -->
+    <section id="charts">
+      <h2>Progress Charts</h2>
+
+      <h3>Daily Activity Bar Chart</h3>
+      <p>Shows how many towers were <strong>captured</strong> and <strong>uploaded</strong> each day. Useful for spotting high-productivity days, slow periods, or days when no work was done.</p>
+      <p>Days marked as <strong>non-working</strong> (e.g. due to rain or access issues) are highlighted so you know why there's a gap.</p>
+
+      <h3>Cumulative Progress Line Chart</h3>
+      <p>Shows the <strong>total</strong> captured and uploaded towers over time, as two lines. As the project progresses, both lines climb towards the total tower count. The gap between the two lines shows how much data has been captured but not yet uploaded.</p>
+    </section>
+
+    <!-- PREDICTION -->
+    <section id="prediction">
+      <h2>Completion Forecast</h2>
+      <p>The Prediction Box calculates estimated completion dates based on the current pace of work. It uses the average daily capture and upload rates observed so far.</p>
+
+      <table class="doc-table">
+        <tr><th>Metric</th><th>What it means</th></tr>
+        <tr><td>Daily Avg Capture</td><td>Average towers captured per working day</td></tr>
+        <tr><td>Daily Avg Upload</td><td>Average towers uploaded per working day</td></tr>
+        <tr><td>Est. Capture Done</td><td>Predicted date when all towers will be captured</td></tr>
+        <tr><td>Est. Upload Done</td><td>Predicted date when all data will be uploaded</td></tr>
+        <tr><td>Days Remaining (Capture)</td><td>Working days until capture is complete at current pace</td></tr>
+        <tr><td>Days Remaining (Upload)</td><td>Working days until upload is complete at current pace</td></tr>
+      </table>
+
+      <div class="callout warning">
+        <span class="icon">⚠️</span>
+        <p>Predictions are estimates based on current pace. Weather, access issues, or equipment problems can affect actual completion dates.</p>
+      </div>
+    </section>
+
+    <!-- PHOTOS -->
+    <section id="photos">
+      <h2>Field Photos</h2>
+      <p>Pilots upload photos at the start and end of each work day. These appear in the <strong>Field Photos</strong> gallery on your dashboard.</p>
+
+      <table class="doc-table">
+        <tr><th>Detail shown on each photo</th><th></th></tr>
+        <tr><td>📅 Date</td><td>The date the photo was taken</td></tr>
+        <tr><td>🗼 Tower Number</td><td>Which tower they were at</td></tr>
+        <tr><td>👷 Pilot Name</td><td>Which pilot uploaded it</td></tr>
+        <tr><td>🏷️ Tag</td><td>Start of Day or End of Day</td></tr>
+      </table>
+
+      <p>Click any photo to open a full-size <strong>lightbox view</strong> with all the details. Use the arrow keys or buttons to browse through photos.</p>
+    </section>
+
+    <!-- ISSUES -->
+    <section id="issues">
+      <h2>Issues & Non-Working Days</h2>
+
+      <h3>Tower Issues</h3>
+      <p>When a pilot encounters a problem with a tower (access denied, equipment issue, tower needs replacement), it is logged as an <strong>Issue</strong>. The Issues panel shows:</p>
+      <table class="doc-table">
+        <tr><th>Column</th><th>Meaning</th></tr>
+        <tr><td>Tower No.</td><td>Which tower has the issue</td></tr>
+        <tr><td>Reason</td><td>Description of the problem (e.g. "Landowner denied access", "Tower needs replacement")</td></tr>
+      </table>
+
+      <h3>Non-Working Days</h3>
+      <p>Days when no field work was possible are listed here with the reason. Common reasons:</p>
+      <ul style="margin: 8px 0 12px 20px; color: var(--muted); font-size: .9rem;">
+        <li>Heavy rain / bad weather</li>
+        <li>Access denied by authorities</li>
+        <li>Equipment failure</li>
+        <li>Public holidays</li>
+      </ul>
+      <p>These days are also marked on the Daily Activity chart so you can see exactly why there are gaps.</p>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq">
+      <h2>FAQ</h2>
+
+      <h3>How often does the data update?</h3>
+      <p>The dashboard auto-refreshes every 30 seconds silently in the background. You don't need to reload the page.</p>
+
+      <h3>Can I share my dashboard with a colleague?</h3>
+      <p>Yes — share your access key and the URL <strong>client.varunaat.in</strong> with them. They paste the key and see the same dashboard.</p>
+
+      <h3>My access key stopped working</h3>
+      <p>Your project manager may have rotated the key. Contact them for the new key.</p>
+
+      <h3>Why does the upload % lag behind capture %?</h3>
+      <p>Data capture (drone flying) happens in the field. Data upload (processing and sending) happens later, sometimes the same day or the next day. A gap between the two is completely normal.</p>
+
+      <h3>What does "Acquisition: Complete" mean?</h3>
+      <p>It means all towers in the project have been captured — the drone has flown over every tower. Upload processing may still be ongoing.</p>
+
+      <h3>I see fewer towers on the map than the total count</h3>
+      <p>Only towers with GPS coordinates (from the KML file) appear on the map. If some towers are missing, ask your project manager to check if the KML file covers all towers.</p>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  प्रतिबिम्ब: Drone Inspection Platform — Client Guide &nbsp;|&nbsp; client.varunaat.in
+</footer>
+</body>
+</html>

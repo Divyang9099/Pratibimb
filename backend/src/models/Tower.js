@@ -14,6 +14,12 @@ const towerSchema = new mongoose.Schema(
     lat: { type: Number },
     lng: { type: Number },
 
+    // False once a KML re-upload no longer contains this tower number. The
+    // doc and all its capture/upload history are kept, but it drops out of
+    // the progress counts. A later KML that re-adds the number flips this
+    // back to true and the old history comes with it.
+    inKml: { type: Boolean, default: true },
+
     captured: { type: Boolean, default: false },
     capturedAt: { type: Date },
     capturedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

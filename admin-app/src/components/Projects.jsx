@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 import ProjectDetail from './ProjectDetail.jsx';
+import KmlReplace from './KmlReplace.jsx';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -18,6 +19,7 @@ export default function Projects() {
     requirePhoto: true,
   });
   const [msg, setMsg] = useState('');
+  const [notice, setNotice] = useState('');
 
   const load = () => api.get('/admin/projects').then((r) => setProjects(r.data.projects));
   useEffect(() => {
@@ -48,6 +50,8 @@ export default function Projects() {
 
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
+  // Project whose KML is being replaced, or null when the modal is closed.
+  const [kmlFor, setKmlFor] = useState(null);
 
   function startEdit(p) {
     setEditingId(p._id);
@@ -57,11 +61,11 @@ export default function Projects() {
       startDate: p.startDate ? new Date(p.startDate).toISOString().slice(0, 10) : '',
       active: p.active,
       requirePhoto: p.requirePhoto !== false,
-      kml: '', // only sent if a new file is chosen
     });
   }
 
   async function saveEdit(id) {
+    // KML is not sent here — it has its own preview-then-confirm flow.
     const body = {
       name: editForm.name,
       totalTowers: Number(editForm.totalTowers),
@@ -69,7 +73,6 @@ export default function Projects() {
       active: editForm.active,
       requirePhoto: editForm.requirePhoto,
     };
-    if (editForm.kml) body.kml = editForm.kml; // replacing the KML re-syncs the map
     await api.put(`/admin/projects/${id}`, body);
     setEditingId(null);
     load();
@@ -88,6 +91,29 @@ export default function Projects() {
   return (
     <div>
       <h1>Projects</h1>
+
+      {notice && (
+        <div className="card kml-notice">
+          <span>{notice}</span>
+          <button className="ghost" onClick={() => setNotice('')}>Dismiss</button>
+        </div>
+      )}
+
+      {kmlFor && (
+        <KmlReplace
+          project={kmlFor}
+          onClose={() => setKmlFor(null)}
+          onApplied={(result) => {
+            setKmlFor(null);
+            setNotice(
+              `KML applied to ${kmlFor.name}: ${result.kmlTowers} towers on the line ` +
+                `(${result.added} new, ${result.moved} repositioned, ${result.missing} dropped). ` +
+                `${result.preservedProgress} tower(s) with capture/upload data preserved.`
+            );
+            load();
+          }}
+        />
+      )}
 
       <form className="card stack" onSubmit={create}>
         <h3>New project</h3>
@@ -171,10 +197,6 @@ export default function Projects() {
                     <label className="checkrow sm">
                       <input type="checkbox" checked={editForm.requirePhoto} onChange={(e) => setEditForm({ ...editForm, requirePhoto: e.target.checked })} /> Photo
                     </label>
-                    <label className="file-mini">
-                      Replace KML
-                      <input type="file" accept=".kml,.xml" onChange={async (e) => e.target.files[0] && setEditForm({ ...editForm, kml: await e.target.files[0].text() })} />
-                    </label>
                     <button onClick={() => saveEdit(p._id)}>Save</button>
                     <button className="ghost" onClick={() => setEditingId(null)}>Cancel</button>
                   </td>
@@ -188,6 +210,7 @@ export default function Projects() {
                   <td className="actions">
                     <button className="secondary" onClick={() => setSelected(p._id)}>Open</button>
                     <button className="secondary" onClick={() => startEdit(p)}>Edit</button>
+                    <button className="secondary" onClick={() => setKmlFor(p)}>Replace KML</button>
                     <button className="danger" onClick={() => removeProject(p._id)}>Delete</button>
                   </td>
                 </tr>

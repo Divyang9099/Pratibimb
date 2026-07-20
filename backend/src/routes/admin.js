@@ -6,16 +6,12 @@ import Tower from '../models/Tower.js';
 import DailyLog from '../models/DailyLog.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { buildDashboard } from '../services/analytics.js';
-import { parseKml } from '../services/kml.js';
+import { previewKml, applyKmlToProject } from '../services/kmlSync.js';
 import { notifyProjectUpdate } from '../services/socket.js';
 
 const router = Router();
 router.use(requireAuth, requireRole('admin'));
 
-// Parse a project's KML and apply it: write lat/lng onto matching Tower
-// docs (by number) and store the route line on the project. Returns the
-// number of towers updated. Tower docs are upserted so points that exist
-// in the KML but not yet as towers still get placed on the map.
 // Natural sort for tower numbers stored as strings ("2" before "10",
 // "25" before "250"). Falls back to text compare for non-numeric labels.
 function compareTowerNumbers(a, b) {
@@ -23,24 +19,6 @@ function compareTowerNumbers(a, b) {
   const nb = parseInt(b, 10);
   if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
   return String(a).localeCompare(String(b), undefined, { numeric: true });
-}
-
-async function applyKml(projectId, kml) {
-  const { towers, route } = parseKml(kml);
-
-  if (towers.length) {
-    await Tower.bulkWrite(
-      towers.map((t) => ({
-        updateOne: {
-          filter: { project: projectId, number: t.number },
-          update: { $set: { lat: t.lat, lng: t.lng } },
-          upsert: true,
-        },
-      }))
-    );
-  }
-  await Project.findByIdAndUpdate(projectId, { $set: { route } });
-  return { updated: towers.length, routePoints: route.length };
 }
 
 /* ----------------------------- Clients ----------------------------- */
@@ -107,7 +85,14 @@ router.delete('/clients/:id', async (req, res) => {
 
 router.get('/pilots', async (req, res) => {
   const pilots = await User.find({ role: 'pilot' }).sort({ createdAt: -1 }).lean();
-  res.json({ pilots: pilots.map((p) => ({ ...p, passwordHash: undefined })) });
+  res.json({
+    pilots: pilots.map((p) => ({
+      ...p,
+      password: p.plainPassword || '',
+      passwordHash: undefined,
+      plainPassword: undefined,
+    })),
+  });
 });
 
 router.post('/pilots', async (req, res) => {
@@ -125,9 +110,19 @@ router.post('/pilots', async (req, res) => {
 });
 
 router.put('/pilots/:id', async (req, res) => {
-  const { name, phone, active, password } = req.body || {};
+  const { name, phone, active, password, loginId } = req.body || {};
   const pilot = await User.findOne({ _id: req.params.id, role: 'pilot' });
   if (!pilot) return res.status(404).json({ error: 'Pilot not found' });
+
+  // Allow changing the login ID, keeping it unique across all users.
+  if (loginId != null && String(loginId).trim()) {
+    const newId = String(loginId).toLowerCase().trim();
+    if (newId !== pilot.loginId) {
+      const exists = await User.findOne({ loginId: newId, _id: { $ne: pilot._id } });
+      if (exists) return res.status(409).json({ error: 'loginId already in use' });
+      pilot.loginId = newId;
+    }
+  }
   if (name != null) pilot.name = name;
   if (phone != null) pilot.phone = phone;
   if (active != null) pilot.active = active;
@@ -138,6 +133,97 @@ router.put('/pilots/:id', async (req, res) => {
 
 router.delete('/pilots/:id', async (req, res) => {
   await User.deleteOne({ _id: req.params.id, role: 'pilot' });
+  res.json({ ok: true });
+});
+
+/* ------------------------- Users (all roles) ----------------------- */
+// Full account management for admins + pilots, incl. viewing the stored
+// plaintext password and changing any account's login ID / password.
+
+router.get('/users', async (req, res) => {
+  const users = await User.find().sort({ role: 1, createdAt: -1 }).lean();
+  res.json({
+    users: users.map((u) => ({
+      ...u,
+      password: u.plainPassword || '',
+      passwordHash: undefined,
+      plainPassword: undefined,
+    })),
+  });
+});
+
+router.post('/users', async (req, res) => {
+  const { name, loginId, password, phone, role } = req.body || {};
+  if (!name || !loginId || !password || !role) {
+    return res.status(400).json({ error: 'name, loginId, password and role are required' });
+  }
+  if (!['admin', 'pilot'].includes(role)) {
+    return res.status(400).json({ error: 'role must be admin or pilot' });
+  }
+  const exists = await User.findOne({ loginId: loginId.toLowerCase().trim() });
+  if (exists) return res.status(409).json({ error: 'loginId already in use' });
+
+  const user = new User({ name, loginId, role, phone });
+  await user.setPassword(password);
+  await user.save();
+  res.status(201).json({ user: user.toSafeJSON() });
+});
+
+router.put('/users/:id', async (req, res) => {
+  const { name, phone, active, password, loginId, role } = req.body || {};
+  const user = await User.findById(req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const isSelf = String(user._id) === String(req.user._id);
+
+  // Change login ID, keeping it unique across all users.
+  if (loginId != null && String(loginId).trim()) {
+    const newId = String(loginId).toLowerCase().trim();
+    if (newId !== user.loginId) {
+      const dupe = await User.findOne({ loginId: newId, _id: { $ne: user._id } });
+      if (dupe) return res.status(409).json({ error: 'loginId already in use' });
+      user.loginId = newId;
+    }
+  }
+
+  // Role change — never demote yourself or the last remaining admin.
+  if (role != null && ['admin', 'pilot'].includes(role) && role !== user.role) {
+    if (user.role === 'admin' && role !== 'admin') {
+      if (isSelf) return res.status(400).json({ error: "You can't change your own role" });
+      const admins = await User.countDocuments({ role: 'admin' });
+      if (admins <= 1) return res.status(400).json({ error: 'At least one admin must remain' });
+    }
+    user.role = role;
+  }
+
+  // Active toggle — never lock yourself out or disable the last admin.
+  if (active != null && active !== user.active && !active) {
+    if (isSelf) return res.status(400).json({ error: "You can't deactivate your own account" });
+    if (user.role === 'admin') {
+      const activeAdmins = await User.countDocuments({ role: 'admin', active: true });
+      if (activeAdmins <= 1) return res.status(400).json({ error: 'At least one active admin must remain' });
+    }
+  }
+
+  if (name != null) user.name = name;
+  if (phone != null) user.phone = phone;
+  if (active != null) user.active = active;
+  if (password) await user.setPassword(password);
+  await user.save();
+  res.json({ user: user.toSafeJSON() });
+});
+
+router.delete('/users/:id', async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) return res.json({ ok: true });
+  if (String(user._id) === String(req.user._id)) {
+    return res.status(400).json({ error: "You can't delete your own account" });
+  }
+  if (user.role === 'admin') {
+    const admins = await User.countDocuments({ role: 'admin' });
+    if (admins <= 1) return res.status(400).json({ error: 'At least one admin must remain' });
+  }
+  await User.deleteOne({ _id: user._id });
   res.json({ ok: true });
 });
 
@@ -172,14 +258,22 @@ router.post('/projects', async (req, res) => {
   }
 
   // Place towers + route on the map from the KML, if one was provided.
-  if (kml) await applyKml(project._id, kml);
+  if (kml) {
+    await applyKmlToProject(project._id, kml, {
+      fileName: req.body?.kmlFileName || '',
+      userId: req.user?._id,
+    });
+  }
 
-  res.status(201).json({ project });
+  res.status(201).json({ project: await Project.findById(project._id).lean() });
 });
 
+// Note: KML is deliberately NOT accepted here. Replacing it is a separate,
+// preview-then-confirm flow (see /projects/:id/kml/* below) so a wrong file
+// can never be applied by an incidental project edit.
 router.put('/projects/:id', async (req, res) => {
-  const { name, totalTowers, kml, description, startDate, active, requirePhoto } = req.body || {};
-  const set = { name, totalTowers, kml, description, startDate, active };
+  const { name, totalTowers, description, startDate, active, requirePhoto } = req.body || {};
+  const set = { name, totalTowers, description, startDate, active };
   if (requirePhoto != null) set.requirePhoto = requirePhoto;
   const project = await Project.findByIdAndUpdate(
     req.params.id,
@@ -188,22 +282,60 @@ router.put('/projects/:id', async (req, res) => {
   );
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
-  // Re-apply coordinates whenever the KML is (re)uploaded.
-  if (kml) await applyKml(project._id, kml);
-
   notifyProjectUpdate(project._id);
   res.json({ project });
 });
 
-// Backfill: re-parse a project's stored KML onto its towers + route.
-router.post('/projects/:id/sync-kml', async (req, res) => {
-  const project = await Project.findById(req.params.id);
-  if (!project) return res.status(404).json({ error: 'Project not found' });
-  if (!project.kml) return res.status(400).json({ error: 'Project has no KML to sync' });
+/* ---------------------------- KML replace --------------------------- */
 
-  const result = await applyKml(project._id, project.kml);
-  notifyProjectUpdate(project._id);
+// Dry run: report what replacing the KML would change. Writes nothing.
+router.post('/projects/:id/kml/preview', async (req, res) => {
+  const { kml } = req.body || {};
+  if (!kml) return res.status(400).json({ error: 'kml is required' });
+
+  const result = await previewKml(req.params.id, kml);
+  if (!result) return res.status(404).json({ error: 'Project not found' });
   res.json(result);
+});
+
+// Commit the replacement. Geometry and tower count are updated; every
+// tower's captured/uploaded history is left untouched.
+router.post('/projects/:id/kml/apply', async (req, res) => {
+  try {
+    const { kml, kmlFileName } = req.body || {};
+    if (!kml) return res.status(400).json({ error: 'kml is required' });
+
+    const result = await applyKmlToProject(req.params.id, kml, {
+      fileName: kmlFileName || '',
+      userId: req.user?._id,
+    });
+    if (!result) return res.status(404).json({ error: 'Project not found' });
+
+    notifyProjectUpdate(req.params.id);
+    res.json(result);
+  } catch (err) {
+    console.error('POST /projects/:id/kml/apply error:', err);
+    res.status(err.status || 500).json({ error: err.message || 'Failed to apply KML' });
+  }
+});
+
+// Backfill: re-apply the project's already-stored KML onto its towers.
+router.post('/projects/:id/sync-kml', async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id).lean();
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+    if (!project.kml) return res.status(400).json({ error: 'Project has no KML to sync' });
+
+    const result = await applyKmlToProject(project._id, project.kml, {
+      fileName: project.kmlFileName || '',
+      userId: req.user?._id,
+    });
+    notifyProjectUpdate(project._id);
+    res.json(result);
+  } catch (err) {
+    console.error('POST /projects/:id/sync-kml error:', err);
+    res.status(err.status || 500).json({ error: err.message || 'Failed to sync KML' });
+  }
 });
 
 router.delete('/projects/:id', async (req, res) => {

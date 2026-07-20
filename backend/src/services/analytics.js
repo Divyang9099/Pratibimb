@@ -29,9 +29,14 @@ export async function buildDashboard(projectId) {
     return String(a.number).localeCompare(String(b.number), undefined, { numeric: true });
   });
 
-  const total = project.totalTowers || towers.length;
-  const captured = towers.filter((t) => t.captured);
-  const uploaded = towers.filter((t) => t.uploaded);
+  // Towers dropped by a later KML revision keep their history but must not
+  // count toward progress. `inKml !== false` (rather than `=== true`) so
+  // docs predating the field are still treated as active.
+  const activeTowers = towers.filter((t) => t.inKml !== false);
+
+  const total = project.totalTowers || activeTowers.length;
+  const captured = activeTowers.filter((t) => t.captured);
+  const uploaded = activeTowers.filter((t) => t.uploaded);
 
   const capturedDone = captured.length;
   const uploadedDone = uploaded.length;
@@ -47,7 +52,7 @@ export async function buildDashboard(projectId) {
     .lean();
 
   // ---- Tower issues (issueReplace with a note) ----
-  const issueTowers = await Tower.find({ project: projectId, issueReplace: true, notes: { $exists: true, $ne: '' } })
+  const issueTowers = await Tower.find({ project: projectId, issueReplace: true, inKml: { $ne: false }, notes: { $exists: true, $ne: '' } })
     .populate('capturedBy', 'name')
     .sort({ number: 1 })
     .lean();
@@ -166,16 +171,22 @@ export async function buildDashboard(projectId) {
         close: latestEnd ? { date: latestEnd.date, towerNo: latestEnd.towerNo } : null,
       },
     },
-    towers: towers.map((t) => ({
-      id: t._id,
-      number: t.number,
-      lat: t.lat,
-      lng: t.lng,
-      captured: t.captured,
-      uploaded: t.uploaded,
-      issueReplace: t.issueReplace,
-      status: t.captured && t.uploaded ? 'green' : t.captured ? 'yellow' : 'red',
-    })),
+    towers: towers.map((t) => {
+      const stale = t.inKml === false;
+      return {
+        id: t._id,
+        number: t.number,
+        lat: t.lat,
+        lng: t.lng,
+        captured: t.captured,
+        uploaded: t.uploaded,
+        issueReplace: t.issueReplace,
+        // Towers no longer on the line render grey rather than disappearing,
+        // so a shortened KML doesn't look like data went missing.
+        stale,
+        status: stale ? 'grey' : t.captured && t.uploaded ? 'green' : t.captured ? 'yellow' : 'red',
+      };
+    }),
     dailyActivity,
     communication,
     prediction,

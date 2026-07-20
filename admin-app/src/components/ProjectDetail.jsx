@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
-import { socket } from '../socket';
+import { useProjectLive } from '../useProjectLive';
 import AdminDataUpdate from './AdminDataUpdate.jsx';
 
 // Admin view of a single project: KPI summary + editable tower table +
@@ -32,24 +32,14 @@ export default function ProjectDetail({ projectId, onBack }) {
 
   useEffect(() => {
     loadAll();
-
-    socket.emit('join-project', projectId);
-
-    const handleUpdate = (data) => {
-      // Don't clobber unsaved edits if a live update arrives mid-edit.
-      if (data.projectId === projectId && !dirtyRef.current) {
-        loadAll();
-      }
-    };
-
-    socket.on('project-update', handleUpdate);
-
-    return () => {
-      socket.off('project-update', handleUpdate);
-      socket.emit('leave-project', projectId);
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
+
+  // Live updates, but never at the cost of unsaved work: if the admin has
+  // pending tower edits, skip the refresh rather than overwrite them.
+  useProjectLive(projectId, () => {
+    if (!dirtyRef.current) loadAll();
+  });
 
   // Current displayed value for a tower field (pending edit overrides server).
   function valueOf(tower, field) {

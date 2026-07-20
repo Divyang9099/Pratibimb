@@ -4,6 +4,7 @@ import { warmBackend } from './components/WarmUp.jsx';
 import Login from './components/Login.jsx';
 import Clients from './components/Clients.jsx';
 import Pilots from './components/Pilots.jsx';
+import Users from './components/Users.jsx';
 import Projects from './components/Projects.jsx';
 
 warmBackend();
@@ -12,6 +13,7 @@ const nav = [
   { id: 'projects', label: 'Projects' },
   { id: 'clients', label: 'Clients' },
   { id: 'pilots', label: 'Pilots' },
+  { id: 'users', label: 'Users' },
 ];
 
 export default function App() {
@@ -77,6 +79,7 @@ export default function App() {
           {section === 'projects' && <Projects />}
           {section === 'clients' && <Clients />}
           {section === 'pilots' && <Pilots />}
+          {section === 'users' && <Users />}
         </main>
       </div>
     </div>

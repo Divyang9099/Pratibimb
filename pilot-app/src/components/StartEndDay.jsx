@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
+import { useProjectLive } from '../useProjectLive';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -68,6 +69,16 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
       .finally(() => { if (active) setStatusLoading(false); });
     return () => { active = false; };
   }, [projectId, isStart, date]);
+
+  // Live updates refresh the server-derived status only. The form fields
+  // (tower number, photo, note) are the pilot's in-progress input and are
+  // deliberately left alone.
+  useProjectLive(projectId, () => {
+    if (!projectId) return;
+    api.get(`/pilot/today-status/${projectId}`, { params: { date } })
+      .then(r => setStatus(r.data))
+      .catch(() => {});
+  });
 
   // Reset form fields when date or project changes.
   useEffect(() => {

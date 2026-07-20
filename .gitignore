@@ -1,8 +1,15 @@
 node_modules/
 dist/
 .env
+# Backups/variants of env files carry the same live credentials.
+.env.*
+!.env.example
+!.env.production
 *.log
 .DS_Store
 
 # SSH / EC2 private keys — never commit these
 *.pem
+
+# Deploy scripts contain cPanel credentials — keep local only
+deploy/deploy-*.ps1

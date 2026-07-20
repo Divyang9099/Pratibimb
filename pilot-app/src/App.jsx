@@ -56,6 +56,15 @@ export default function App() {
         </div>
         <div className="topbar-right">
           <span className="who">{user.name}</span>
+          <a
+            href="https://client.varunaat.in/pilot-guide.html"
+            target="_blank"
+            rel="noreferrer"
+            className="ghost"
+            style={{ textDecoration: 'none', fontSize: '13px' }}
+          >
+            📖 Guide
+          </a>
           <button className="ghost" onClick={logout}>Logout</button>
         </div>
       </header>

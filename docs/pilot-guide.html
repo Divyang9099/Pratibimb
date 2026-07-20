@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pilot Guide — प्रतिबिम्ब:</title>
+<style>
+  :root {
+    --primary: #1a5c38;
+    --accent:  #27ae60;
+    --blue:    #2e86de;
+    --orange:  #e67e22;
+    --red:     #e74c3c;
+    --bg:      #f4fbf6;
+    --card:    #ffffff;
+    --border:  #d4e8da;
+    --text:    #2c3e50;
+    --muted:   #7f8c8d;
+    --pill-bg: #eafaf1;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+
+  nav {
+    background: var(--primary);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 32px;
+    height: 60px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  }
+  nav .logo  { font-size: 1.3rem; font-weight: 700; }
+  nav .badge { background: var(--accent); font-size: .7rem; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+  nav ul { display: flex; gap: 4px; list-style: none; margin-left: auto; }
+  nav ul a { color: rgba(255,255,255,.8); text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: .85rem; transition: background .15s; }
+  nav ul a:hover { background: rgba(255,255,255,.15); color: #fff; }
+
+  .hero {
+    background: linear-gradient(135deg, var(--primary) 0%, #27774a 100%);
+    color: #fff;
+    padding: 64px 32px;
+    text-align: center;
+  }
+  .hero h1 { font-size: 2.4rem; font-weight: 800; margin-bottom: 12px; }
+  .hero p  { font-size: 1.1rem; opacity: .85; max-width: 600px; margin: 0 auto 28px; }
+  .hero .chips { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .hero .chip  { background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3); border-radius: 20px; padding: 4px 14px; font-size: .82rem; }
+
+  .layout { display: grid; grid-template-columns: 240px 1fr; max-width: 1200px; margin: 40px auto; gap: 32px; padding: 0 24px 80px; }
+  @media(max-width:768px){ .layout { grid-template-columns: 1fr; } .sidebar { display: none; } }
+
+  .sidebar { position: sticky; top: 76px; height: fit-content; }
+  .sidebar-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .sidebar-card h4 { font-size: .75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 12px; }
+  .sidebar-card a  { display: block; color: var(--text); text-decoration: none; padding: 6px 10px; border-radius: 6px; font-size: .88rem; margin-bottom: 2px; transition: background .12s; }
+  .sidebar-card a:hover { background: var(--pill-bg); color: var(--accent); }
+
+  .content section { margin-bottom: 48px; }
+  h2 { font-size: 1.6rem; font-weight: 700; color: var(--primary); margin-bottom: 8px; padding-bottom: 10px; border-bottom: 2px solid var(--border); }
+  h3 { font-size: 1.15rem; font-weight: 600; color: var(--primary); margin: 24px 0 10px; }
+  p  { margin-bottom: 12px; }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+
+  .tab-demo { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin: 20px 0 0; }
+  .tab-item { padding: 10px 24px; font-weight: 600; font-size: .9rem; border-bottom: 3px solid transparent; cursor: default; }
+  .tab-item.active { border-bottom-color: var(--accent); color: var(--accent); }
+  .tab-item:not(.active) { color: var(--muted); }
+
+  .steps { counter-reset: step; display: flex; flex-direction: column; gap: 16px; }
+  .step  { display: flex; gap: 16px; align-items: flex-start; }
+  .step-num { counter-increment: step; min-width: 36px; height: 36px; background: var(--accent); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .9rem; flex-shrink: 0; }
+  .step-num::before { content: counter(step); }
+  .step-body h4 { font-weight: 600; margin-bottom: 4px; }
+  .step-body p  { color: var(--muted); font-size: .9rem; margin: 0; }
+
+  .day-flow { display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center; margin: 24px 0; }
+  .day-box  { background: var(--card); border: 2px solid var(--border); border-radius: 12px; padding: 20px; text-align: center; }
+  .day-box.start { border-color: var(--accent); }
+  .day-box.end   { border-color: var(--blue); }
+  .day-box .icon { font-size: 2rem; display: block; margin-bottom: 8px; }
+  .day-box h4    { font-weight: 700; font-size: 1rem; margin-bottom: 6px; }
+  .day-box p     { font-size: .82rem; color: var(--muted); margin: 0; }
+  .day-arrow     { font-size: 2rem; color: var(--muted); text-align: center; }
+
+  .doc-table { width: 100%; border-collapse: collapse; font-size: .88rem; margin-bottom: 16px; }
+  .doc-table th { background: var(--primary); color: #fff; padding: 10px 14px; text-align: left; font-weight: 600; }
+  .doc-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .doc-table tr:nth-child(even) td { background: #f6fdf8; }
+
+  .callout { border-radius: 10px; padding: 16px 20px; margin: 16px 0; display: flex; gap: 12px; align-items: flex-start; }
+  .callout.info    { background: #eaf4ff; border-left: 4px solid var(--blue); }
+  .callout.warning { background: #fff8e1; border-left: 4px solid var(--orange); }
+  .callout.success { background: var(--pill-bg); border-left: 4px solid var(--accent); }
+  .callout .icon   { font-size: 1.2rem; flex-shrink: 0; }
+  .callout p       { margin: 0; font-size: .9rem; }
+
+.field-form { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin: 20px 0; }
+  .field-form .form-head { background: var(--primary); color: #fff; padding: 12px 20px; font-weight: 600; font-size: .9rem; }
+  .field-row  { display: flex; flex-direction: column; gap: 4px; padding: 12px 20px; border-bottom: 1px solid var(--border); }
+  .field-row:last-child { border: none; }
+  .field-label { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+  .field-input { background: #f4fbf6; border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-size: .9rem; color: var(--text); }
+
+  footer { background: var(--primary); color: rgba(255,255,255,.6); text-align: center; padding: 24px; font-size: .82rem; }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">प्रतिबिम्ब:</span>
+  <span class="badge">Pilot Guide</span>
+  <ul>
+    <li><a href="admin-guide.html">Admin Guide</a></li>
+    <li><a href="client-guide.html">Client Guide</a></li>
+  </ul>
+</nav>
+
+<div class="hero">
+  <h1>Pilot App Guide</h1>
+  <p>Step-by-step instructions for field pilots — logging your work day, submitting tower data, and uploading field photos.</p>
+  <div class="chips">
+    <span class="chip">📅 Start / End Day</span>
+    <span class="chip">📸 Field Photos</span>
+    <span class="chip">🗼 Data Update</span>
+    <span class="chip">📵 Non-Working Days</span>
+  </div>
+</div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-card">
+      <h4>On This Page</h4>
+      <a href="#overview">Overview</a>
+      <a href="#login">Logging In</a>
+      <a href="#tabs">App Tabs</a>
+      <a href="#start-day">Start Day</a>
+      <a href="#end-day">End Day</a>
+      <a href="#data-update">Data Update</a>
+      <a href="#non-working">Non-Working Days</a>
+      <a href="#photos">Field Photos</a>
+      <a href="#tips">Tips & FAQ</a>
+    </div>
+  </aside>
+
+  <main class="content">
+
+    <!-- OVERVIEW -->
+    <section id="overview">
+      <h2>Overview</h2>
+      <p>As a pilot, your job in the app is simple: <strong>log when you start and end your work day</strong>, then <strong>submit the tower data</strong> you collected in the field. The app has three tabs to do this.</p>
+
+      <div class="day-flow">
+        <div class="day-box start">
+          <span class="icon">🌅</span>
+          <h4>Morning</h4>
+          <p>Log Start Day when you arrive at the site</p>
+        </div>
+        <div class="day-arrow">→</div>
+        <div class="day-box end">
+          <span class="icon">🌇</span>
+          <h4>Evening</h4>
+          <p>Log End Day when you finish field work</p>
+        </div>
+      </div>
+
+      <p>After logging your day, go to <strong>Data Update</strong> to mark which towers you captured and uploaded.</p>
+    </section>
+
+    <!-- LOGIN -->
+    <section id="login">
+      <h2>Logging In</h2>
+      <div class="steps">
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Open the Pilot App</h4><p>Go to <strong>https://pilot.varunaat.in</strong> in your mobile or desktop browser.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Enter your Login ID</h4><p>Your admin will provide this (e.g. <code>pilot01</code>).</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Enter your Password</h4><p>Click <strong>Login</strong>. You'll see the three tabs.</p></div></div>
+      </div>
+      <div class="callout warning">
+        <span class="icon">⚠️</span>
+        <p>Only pilot accounts work here. Admin credentials will be rejected. If login fails, contact your admin to check your account status.</p>
+      </div>
+    </section>
+
+    <!-- TABS -->
+    <section id="tabs">
+      <h2>App Tabs</h2>
+      <div class="tab-demo">
+        <div class="tab-item active">Start Day</div>
+        <div class="tab-item">End Day</div>
+        <div class="tab-item">Data Update</div>
+      </div>
+      <div class="card" style="border-radius: 0 0 12px 12px; border-top: none;">
+        <table class="doc-table">
+          <tr><th>Tab</th><th>When to use</th></tr>
+          <tr><td><strong>Start Day</strong></td><td>First thing in the morning when you arrive at the field site</td></tr>
+          <tr><td><strong>End Day</strong></td><td>At the end of the day when you leave the site</td></tr>
+          <tr><td><strong>Data Update</strong></td><td>After field work — to submit which towers were captured/uploaded</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- START DAY -->
+    <section id="start-day">
+      <h2>Start Day</h2>
+      <p>This records that you have arrived at the site and begun work. Do this <strong>before</strong> flying any drones.</p>
+
+      <div class="field-form">
+        <div class="form-head">Start Day Form</div>
+        <div class="field-row"><span class="field-label">Project *</span><div class="field-input">Select your project from the list</div></div>
+        <div class="field-row"><span class="field-label">Date *</span><div class="field-input">Today's date (auto-filled, can be changed)</div></div>
+        <div class="field-row"><span class="field-label">Field Photo</span><div class="field-input">📷 Upload a photo from the field (required if admin enabled it)</div></div>
+        <div class="field-row"><span class="field-label">Start Tower No. *</span><div class="field-input">The tower number where you are starting (e.g. T-45)</div></div>
+        <div class="field-row"><span class="field-label">Notes</span><div class="field-input">Optional — any remarks about conditions, access, etc.</div></div>
+      </div>
+
+      <div class="steps">
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Select your Project</h4><p>Pick from the dropdown. Only active projects appear.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Confirm the Date</h4><p>Defaults to today. Change only if logging for a past/future date.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Upload a Field Photo (if required)</h4><p>Tap the photo button, take or choose a photo. It is compressed automatically.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Enter your Start Tower number</h4><p>The tower you are starting from today.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Click "Start Day"</h4><p>You will see a green success banner. Day is now started.</p></div></div>
+      </div>
+
+      <div class="callout info">
+        <span class="icon">💡</span>
+        <p>You can only start a day once per project per date. If you accidentally submitted the wrong data, contact your admin to correct it.</p>
+      </div>
+    </section>
+
+    <!-- END DAY -->
+    <section id="end-day">
+      <h2>End Day</h2>
+      <p>This records that you have finished field work for the day. Do this <strong>before leaving the site</strong>.</p>
+
+      <div class="field-form">
+        <div class="form-head">End Day Form</div>
+        <div class="field-row"><span class="field-label">Project *</span><div class="field-input">Same project as Start Day</div></div>
+        <div class="field-row"><span class="field-label">Date *</span><div class="field-input">Same date as Start Day</div></div>
+        <div class="field-row"><span class="field-label">Field Photo</span><div class="field-input">📷 End-of-day photo (required if admin enabled it)</div></div>
+        <div class="field-row"><span class="field-label">End Tower No. *</span><div class="field-input">The last tower you reached today</div></div>
+        <div class="field-row"><span class="field-label">Notes</span><div class="field-input">Optional — anything to note about today's work</div></div>
+      </div>
+
+      <div class="callout warning">
+        <span class="icon">⚠️</span>
+        <p>You must have logged <strong>Start Day</strong> first. If Start Day is missing, End Day will show an error — go to Start Day tab and submit it first.</p>
+      </div>
+
+    </section>
+
+    <!-- DATA UPDATE -->
+    <section id="data-update">
+      <h2>Data Update</h2>
+      <p>After field work, record which towers had their data <strong>captured</strong> (drone flew over and collected), <strong>uploaded</strong> (data processed and sent to server), or had an <strong>issue</strong>.</p>
+
+      <div class="steps">
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Select Project, Date, and Pilot</h4><p>Choose the project, the date the work was done, and your pilot name.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Enter Tower Range</h4><p>Type the "From" and "To" tower numbers you worked on (e.g. From: 45, To: 90). Click <strong>Load</strong>.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Tick the checkboxes</h4>
+          <p>For each tower, tick:<br>
+          ✅ <strong>Capture</strong> — data collected for this tower<br>
+          ✅ <strong>Upload</strong> — data uploaded/processed<br>
+          ⚠️ <strong>Issue</strong> — tower has access or replacement problem</p>
+        </div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Add Issue reasons (if any)</h4><p>A popup appears asking for the reason for each issue tower.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Click Submit</h4><p>All tower statuses are saved. The admin can see them immediately.</p></div></div>
+      </div>
+
+      <div class="callout info">
+        <span class="icon">💡</span>
+        <p>Towers already marked as captured in a previous submission are <strong>highlighted in yellow</strong> so you don't accidentally double-submit them.</p>
+      </div>
+
+      <h3>Select All</h3>
+      <p>Use the checkbox in the column header to tick all towers in that column at once. Useful when you captured all towers in a range.</p>
+    </section>
+
+    <!-- NON-WORKING DAYS -->
+    <section id="non-working">
+      <h2>Non-Working Days</h2>
+      <p>If you cannot work due to weather, access issues, or any other reason, log a <strong>Non-Working Day</strong> instead of Start Day.</p>
+
+      <div class="steps">
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Go to Start Day tab</h4></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Select your Project and Date</h4></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Toggle "Non-Working Day"</h4><p>The tower number and photo fields disappear.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Enter the Reason</h4><p>E.g. "Heavy rain", "Access denied by landowner", "Equipment failure".</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Click Submit</h4><p>The non-working day is recorded. The client dashboard will show this date as non-working.</p></div></div>
+      </div>
+
+      <div class="callout success">
+        <span class="icon">✅</span>
+        <p>Non-working days are visible to the client in their dashboard under the "Non-Working Days" panel, so they have full transparency.</p>
+      </div>
+    </section>
+
+    <!-- FIELD PHOTOS -->
+    <section id="photos">
+      <h2>Field Photos</h2>
+      <p>Photos you upload during Start Day or End Day are automatically attached to the project and visible to the client in their dashboard photo gallery.</p>
+
+      <table class="doc-table">
+        <tr><th>Detail</th><th>Info</th></tr>
+        <tr><td>Max size</td><td>Compressed automatically to max 1200px wide, 82% quality — no need to resize manually</td></tr>
+        <tr><td>Format</td><td>Any JPEG or PNG from your camera</td></tr>
+        <tr><td>What's recorded</td><td>Date, tower number, pilot name, and Start/End tag</td></tr>
+        <tr><td>Visible to client?</td><td>Yes — appears in the Field Photos gallery on their dashboard</td></tr>
+      </table>
+    </section>
+
+    <!-- TIPS -->
+    <section id="tips">
+      <h2>Tips & FAQ</h2>
+
+      <h3>Can I log data for a past date?</h3>
+      <p>Yes. Change the date field to the correct date. This is useful if you forgot to log the previous day.</p>
+
+      <h3>What if I select the wrong project?</h3>
+      <p>Contact your admin immediately. They can correct entries in the system.</p>
+
+      <h3>The app says "Server is warming up"</h3>
+      <p>The backend is starting up (cold start). Wait 30–60 seconds — it retries automatically. Do not close the page.</p>
+
+      <h3>Can two pilots submit data for the same project on the same day?</h3>
+      <p>Yes. Each pilot logs their own Start/End Day separately. In Data Update, select the correct pilot name so the records are attributed correctly.</p>
+
+      <h3>What does "Already Captured" (yellow row) mean in Data Update?</h3>
+      <p>That tower was already marked as captured in a previous submission. You can still update it, but the yellow colour is a warning so you don't double-count.</p>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  प्रतिबिम्ब: Drone Inspection Platform — Pilot Guide &nbsp;|&nbsp; pilot.varunaat.in
+</footer>
+</body>
+</html>

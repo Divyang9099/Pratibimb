@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { accessWithKey, fetchDashboard, keyStore, pageStore } from './api';
+import { useProjectLive } from './useProjectLive';
 import { warmBackend } from './components/WarmUp.jsx';
 import KeyGate from './components/KeyGate.jsx';
 import Dashboard from './components/Dashboard.jsx';
@@ -40,37 +41,53 @@ export default function App() {
     }
   }
 
-  // Reload dashboard on project change; auto-refresh every 30s.
-  // Background refresh failures (e.g. server sleeping) are silently ignored
-  // so the existing dashboard stays visible without an error banner.
+  // Read the session from a ref so `refresh` stays stable across renders and
+  // doesn't re-subscribe the socket every time the dashboard updates.
+  const sessionRef = useRef(null);
+  sessionRef.current = session;
+
+  // Background refresh, shared by the live socket push and the polling
+  // fallback. Failures are swallowed so a blip never replaces a good
+  // dashboard with an error banner.
+  const refresh = useCallback(async () => {
+    const s = sessionRef.current;
+    if (!s || !projectId) return;
+    try {
+      const data = await fetchDashboard(projectId, s.key);
+      setDashboard(data);
+      setError('');
+    } catch {
+      /* keep showing the last good dashboard */
+    }
+  }, [projectId]);
+
+  // Live updates: the server pushes project-update whenever a pilot or admin
+  // changes anything on this project, so the dashboard reflects it instantly.
+  useProjectLive(projectId, refresh);
+
+  // First load for a project, plus a slow poll as a safety net in case a
+  // socket event is missed or the connection is down.
   useEffect(() => {
     if (!session || !projectId) return;
     pageStore.setProject(projectId);
     let active = true;
-    let isFirstLoad = true;
 
-    const load = async () => {
-      if (isFirstLoad) setLoading(true);
+    (async () => {
+      setLoading(true);
       try {
-        // First load: retry through cold-starts. Background refreshes: single attempt.
-        const data = isFirstLoad
-          ? await withRetry(() => fetchDashboard(projectId, session.key))
-          : await fetchDashboard(projectId, session.key);
+        // Retry through cold-starts on the first load only.
+        const data = await withRetry(() => fetchDashboard(projectId, session.key));
         if (active) { setDashboard(data); setError(''); }
       } catch (e) {
-        if (active && isFirstLoad) {
-          setError(e.response?.data?.error || 'Failed to load dashboard');
-        }
+        if (active) setError(e.response?.data?.error || 'Failed to load dashboard');
       } finally {
         if (active) setLoading(false);
-        isFirstLoad = false;
       }
-    };
+    })();
 
-    load();
-    const t = setInterval(load, 30000);
+    const t = setInterval(refresh, 30000);
     return () => { active = false; clearInterval(t); };
-  }, [session, projectId]);
+  }, [session, projectId, refresh]);
 
   function logout() {
     keyStore.clear();
@@ -90,16 +107,20 @@ export default function App() {
             <span className="brand-role">Client</span>
           </div>
         </div>
-        <div className="topbar-right">
-          <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-            <option value="">Select project…</option>
-            {session.projects.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-          <button className="ghost" onClick={logout}>Exit</button>
-        </div>
       </header>
+
+      <div className="project-bar">
+        <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+          <option value="">— Select a project —</option>
+          {session.projects.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+        <a href="/client-guide.html" target="_blank" rel="noreferrer" className="guide-btn">
+          Guide
+        </a>
+        <button className="ghost" onClick={logout}>Exit</button>
+      </div>
 
       {!projectId && <div className="empty">Choose a project above to view its progress.</div>}
       {error && <div className="error-banner">{error}</div>}

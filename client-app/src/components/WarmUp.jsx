@@ -6,9 +6,11 @@ export function warmBackend() {
   let tries = 0;
 
   function ping() {
-    fetch(`${API}/health`, { signal: AbortSignal.timeout(8000) })
-      .then((r) => { if (!r.ok) throw new Error(); tries = 0; })
-      .catch(() => { if (tries++ < 20) setTimeout(ping, 5000); });
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    fetch(`${API}/health`, { signal: ctrl.signal })
+      .then((r) => { clearTimeout(timer); if (!r.ok) throw new Error(); tries = 0; })
+      .catch(() => { clearTimeout(timer); if (tries++ < 20) setTimeout(ping, 5000); });
   }
 
   ping();

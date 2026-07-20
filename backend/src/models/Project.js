@@ -10,6 +10,11 @@ const projectSchema = new mongoose.Schema(
     kml: { type: String, default: '' },
     // Parsed powerline route as [[lat, lng], …] (extracted from the KML).
     route: { type: [[Number]], default: [] },
+    // Provenance for the current KML, so admins can see which file is live.
+    kmlFileName: { type: String, default: '' },
+    kmlUpdatedAt: { type: Date },
+    kmlUpdatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    kmlVersion: { type: Number, default: 0 },
     description: { type: String, trim: true },
     startDate: { type: Date },
     active: { type: Boolean, default: true },

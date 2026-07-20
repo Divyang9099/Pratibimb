@@ -76,6 +76,14 @@ button.secondary { background: #f1f5f9; color: #0f172a; border: 1.5px solid var(
 button.ghost { background: transparent; color: var(--muted); border: 1.5px solid var(--line); }
 button.danger { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
 button:disabled { opacity: .5; cursor: default; transform: none; }
+button.ghost.sm { min-height: auto; padding: 3px 9px; font-size: 12px; }
+
+.pwd-cell { display: inline-flex; align-items: center; gap: 8px; }
+.pwd-cell code { font-family: ui-monospace, "Cascadia Code", Menlo, monospace; font-size: 13px; letter-spacing: .5px; }
+
+.role-badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: capitalize; letter-spacing: .3px; }
+.role-badge.role-admin { background: #fee2e2; color: #b91c1c; }
+.role-badge.role-pilot { background: #e0e7ff; color: #4338ca; }
 
 input, select, textarea {
   min-height: 44px;
@@ -549,6 +557,52 @@ tr.editing { background: #f8fafc; }
 .issue-modal-input:focus { outline: none; border-color: var(--accent); }
 .issue-modal-actions { display: flex; gap: 10px; margin-top: 14px; }
 .issue-modal-actions button { flex: 1; }
+
+/* ---- KML replace modal ---- */
+.kml-modal { max-width: 560px; }
+.file-mini.block {
+  display: block;
+  margin: 4px 0 12px;
+  padding: 10px 12px;
+  border: 1.5px dashed var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.kml-preview { margin-top: 4px; }
+.kml-warn {
+  background: rgba(234, 179, 8, .12);
+  border-left: 3px solid #eab308;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.kml-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+.kml-stat {
+  background: var(--surface-2, rgba(148,163,184,.10));
+  border-radius: 8px;
+  padding: 8px 6px;
+  text-align: center;
+}
+.kml-stat b { display: block; font-size: 18px; line-height: 1.2; }
+.kml-stat span { font-size: 11px; color: var(--muted); }
+.kml-stat.add b { color: #22c55e; }
+.kml-stat.warn b { color: #eab308; }
+.kml-lines { font-size: 13px; display: grid; gap: 4px; }
+.kml-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-left: 3px solid #22c55e;
+  font-size: 13px;
+}
 
 /* ---- Soft-select save bar (towers table) ---- */
 .grid.compact tr.row-dirty td { background: #eff6ff; }

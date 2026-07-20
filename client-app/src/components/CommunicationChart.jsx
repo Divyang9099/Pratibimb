@@ -9,8 +9,15 @@ import {
   Legend,
 } from 'recharts';
 
-// Cumulative capture vs upload over time.
-// X-axis shows the tower range worked each day (e.g. "T5–T25").
+// "2026-06-12" -> "12 Jun"
+function fmtDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T12:00:00');
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+}
+
+// Cumulative capture vs upload over time, plotted by date.
 export default function CommunicationChart({ data }) {
   return (
     <div className="panel">
@@ -19,7 +26,8 @@ export default function CommunicationChart({ data }) {
         <LineChart data={data} margin={{ bottom: 8 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
           <XAxis
-            dataKey="towerLabel"
+            dataKey="date"
+            tickFormatter={fmtDate}
             fontSize={11}
             interval="preserveStartEnd"
             tick={{ angle: -35, textAnchor: 'end', dy: 4 }}
@@ -28,7 +36,7 @@ export default function CommunicationChart({ data }) {
           <YAxis allowDecimals={false} fontSize={11} />
           <Tooltip
             formatter={(val, name) => [val, name]}
-            labelFormatter={(label) => `Towers: ${label}`}
+            labelFormatter={fmtDate}
           />
           <Legend />
           <Line

@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin Guide — प्रतिबिम्ब:</title>
+<style>
+  :root {
+    --primary: #1e3a5f;
+    --accent:  #2e86de;
+    --green:   #27ae60;
+    --orange:  #e67e22;
+    --red:     #e74c3c;
+    --bg:      #f4f7fb;
+    --card:    #ffffff;
+    --border:  #dce3ed;
+    --text:    #2c3e50;
+    --muted:   #7f8c8d;
+    --pill-bg: #eaf2ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+
+  /* ── NAV ── */
+  nav {
+    background: var(--primary);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 32px;
+    height: 60px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  }
+  nav .logo { font-size: 1.3rem; font-weight: 700; letter-spacing: .5px; }
+  nav .badge { background: var(--accent); font-size: .7rem; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+  nav ul { display: flex; gap: 4px; list-style: none; margin-left: auto; }
+  nav ul a { color: rgba(255,255,255,.8); text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: .85rem; transition: background .15s; }
+  nav ul a:hover { background: rgba(255,255,255,.15); color: #fff; }
+
+  /* ── HERO ── */
+  .hero {
+    background: linear-gradient(135deg, var(--primary) 0%, #2c5282 100%);
+    color: #fff;
+    padding: 64px 32px;
+    text-align: center;
+  }
+  .hero h1 { font-size: 2.4rem; font-weight: 800; margin-bottom: 12px; }
+  .hero p  { font-size: 1.1rem; opacity: .85; max-width: 600px; margin: 0 auto 28px; }
+  .hero .chips { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .hero .chip  { background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3); border-radius: 20px; padding: 4px 14px; font-size: .82rem; }
+
+  /* ── LAYOUT ── */
+  .layout { display: grid; grid-template-columns: 240px 1fr; max-width: 1200px; margin: 40px auto; gap: 32px; padding: 0 24px 80px; }
+  @media(max-width:768px){ .layout { grid-template-columns: 1fr; } .sidebar { display: none; } }
+
+  /* ── SIDEBAR ── */
+  .sidebar { position: sticky; top: 76px; height: fit-content; }
+  .sidebar-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .sidebar-card h4 { font-size: .75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 12px; }
+  .sidebar-card a  { display: block; color: var(--text); text-decoration: none; padding: 6px 10px; border-radius: 6px; font-size: .88rem; margin-bottom: 2px; transition: background .12s; }
+  .sidebar-card a:hover { background: var(--pill-bg); color: var(--accent); }
+
+  /* ── CONTENT ── */
+  .content section { margin-bottom: 48px; }
+  h2 { font-size: 1.6rem; font-weight: 700; color: var(--primary); margin-bottom: 8px; padding-bottom: 10px; border-bottom: 2px solid var(--border); }
+  h3 { font-size: 1.15rem; font-weight: 600; color: var(--primary); margin: 24px 0 10px; }
+  p  { margin-bottom: 12px; color: var(--text); }
+
+  /* ── CARDS ── */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .kpi-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 6px; }
+  .kpi-card .icon { font-size: 1.8rem; }
+  .kpi-card .label { font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .kpi-card .value { font-size: 1.6rem; font-weight: 700; color: var(--primary); }
+  .kpi-card.green { border-left: 4px solid var(--green); }
+  .kpi-card.blue  { border-left: 4px solid var(--accent); }
+  .kpi-card.orange{ border-left: 4px solid var(--orange); }
+  .kpi-card.red   { border-left: 4px solid var(--red); }
+
+  /* ── STEPS ── */
+  .steps { counter-reset: step; display: flex; flex-direction: column; gap: 16px; }
+  .step  { display: flex; gap: 16px; align-items: flex-start; }
+  .step-num { counter-increment: step; min-width: 36px; height: 36px; background: var(--accent); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .9rem; flex-shrink: 0; }
+  .step-num::before { content: counter(step); }
+  .step-body h4 { font-weight: 600; margin-bottom: 4px; }
+  .step-body p  { color: var(--muted); font-size: .9rem; margin: 0; }
+
+  /* ── FLOW ── */
+  .flow { display: flex; align-items: center; gap: 0; flex-wrap: wrap; margin: 16px 0; }
+  .flow-box { background: var(--pill-bg); border: 1.5px solid var(--accent); color: var(--accent); border-radius: 8px; padding: 8px 16px; font-size: .85rem; font-weight: 600; }
+  .flow-arrow { color: var(--muted); font-size: 1.2rem; padding: 0 8px; }
+
+  /* ── TABLE ── */
+  .doc-table { width: 100%; border-collapse: collapse; font-size: .88rem; margin-bottom: 16px; }
+  .doc-table th { background: var(--primary); color: #fff; padding: 10px 14px; text-align: left; font-weight: 600; }
+  .doc-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .doc-table tr:nth-child(even) td { background: #f8fafd; }
+
+  /* ── BADGES ── */
+  .badge-role { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: .75rem; font-weight: 600; }
+  .badge-admin  { background: #fdecea; color: var(--red); }
+  .badge-pilot  { background: #e8f5e9; color: var(--green); }
+  .badge-client { background: var(--pill-bg); color: var(--accent); }
+
+  /* ── CALLOUT ── */
+  .callout { border-radius: 10px; padding: 16px 20px; margin: 16px 0; display: flex; gap: 12px; align-items: flex-start; }
+  .callout.info    { background: #eaf4ff; border-left: 4px solid var(--accent); }
+  .callout.warning { background: #fff8e1; border-left: 4px solid var(--orange); }
+  .callout.success { background: #e8f5e9; border-left: 4px solid var(--green); }
+  .callout .icon   { font-size: 1.2rem; flex-shrink: 0; }
+  .callout p       { margin: 0; font-size: .9rem; }
+
+  /* ── SCREEN MOCK ── */
+  .screen-mock { background: #1a1a2e; border-radius: 12px; padding: 0; overflow: hidden; margin: 20px 0; box-shadow: 0 8px 32px rgba(0,0,0,.2); }
+  .screen-bar  { background: #2d2d44; padding: 10px 16px; display: flex; gap: 6px; align-items: center; }
+  .screen-dot  { width: 12px; height: 12px; border-radius: 50%; }
+  .screen-body { padding: 20px; color: #e0e0e0; font-family: monospace; font-size: .82rem; min-height: 80px; }
+
+  /* ── PERMISSION TABLE ── */
+  .perm-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 16px 0; }
+  .perm-col  { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .perm-col .head { padding: 10px 14px; font-weight: 700; font-size: .85rem; text-align: center; }
+  .perm-col .head.a { background: #fdecea; color: var(--red); }
+  .perm-col .head.p { background: #e8f5e9; color: var(--green); }
+  .perm-col .head.c { background: var(--pill-bg); color: var(--accent); }
+  .perm-col ul { list-style: none; padding: 12px 14px; }
+  .perm-col ul li { font-size: .82rem; padding: 4px 0; border-bottom: 1px solid var(--border); }
+  .perm-col ul li:last-child { border: none; }
+  .perm-col ul li::before { content: "✓ "; color: var(--green); font-weight: 700; }
+
+  footer { background: var(--primary); color: rgba(255,255,255,.6); text-align: center; padding: 24px; font-size: .82rem; }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">प्रतिबिम्ब:</span>
+  <span class="badge">Admin Guide</span>
+  <ul>
+    <li><a href="client-guide.html">Client Guide</a></li>
+    <li><a href="pilot-guide.html">Pilot Guide</a></li>
+  </ul>
+</nav>
+
+<div class="hero">
+  <h1>Admin Portal Guide</h1>
+  <p>Complete reference for managing projects, pilots, clients and tower data on the Pratibimb drone inspection platform.</p>
+  <div class="chips">
+    <span class="chip">🔐 Admin Only</span>
+    <span class="chip">🏗️ Project Management</span>
+    <span class="chip">👷 Pilot Management</span>
+    <span class="chip">🏢 Client Management</span>
+    <span class="chip">🗼 Tower Data</span>
+  </div>
+</div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-card">
+      <h4>On This Page</h4>
+      <a href="#overview">Overview</a>
+      <a href="#login">Logging In</a>
+      <a href="#clients">Managing Clients</a>
+      <a href="#pilots">Managing Pilots</a>
+      <a href="#projects">Managing Projects</a>
+      <a href="#project-detail">Project Detail</a>
+      <a href="#data-update">Bulk Data Update</a>
+      <a href="#access-keys">Access Keys</a>
+      <a href="#roles">Roles & Permissions</a>
+    </div>
+  </aside>
+
+  <main class="content">
+
+    <!-- OVERVIEW -->
+    <section id="overview">
+      <h2>Overview</h2>
+      <p>The Admin Portal is the control centre of Pratibimb. As an admin you can create and monitor tower inspection projects, manage the pilots who do field work, give clients access to see progress, and perform bulk data updates.</p>
+
+      <div class="card-grid">
+        <div class="kpi-card green">
+          <span class="icon">🏗️</span>
+          <span class="label">Projects</span>
+          <span class="value">Create & track</span>
+        </div>
+        <div class="kpi-card blue">
+          <span class="icon">👷</span>
+          <span class="label">Pilots</span>
+          <span class="value">Add & manage</span>
+        </div>
+        <div class="kpi-card orange">
+          <span class="icon">🏢</span>
+          <span class="label">Clients</span>
+          <span class="value">Share access</span>
+        </div>
+        <div class="kpi-card red">
+          <span class="icon">🗼</span>
+          <span class="label">Tower Data</span>
+          <span class="value">Bulk update</span>
+        </div>
+      </div>
+
+      <h3>How the System Works</h3>
+      <div class="flow">
+        <div class="flow-box">Admin creates Project</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box">Assigns Pilots</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box">Pilots log field work</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box">Admin reviews data</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box">Client views dashboard</div>
+      </div>
+    </section>
+
+    <!-- LOGIN -->
+    <section id="login">
+      <h2>Logging In</h2>
+      <div class="steps">
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Open the Admin Portal</h4><p>Go to <strong>https://admin.varunaat.in</strong> in your browser.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Enter Admin ID</h4><p>Type your admin login ID (e.g. <code>admin</code>).</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Enter Password</h4><p>Type your admin password and click <strong>Login</strong>.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>You're in</h4><p>You land on the Projects tab — the main dashboard.</p></div></div>
+      </div>
+      <div class="callout warning">
+        <span class="icon">⚠️</span>
+        <p>Only accounts with the <strong>admin</strong> role can log in here. Pilot credentials will be rejected.</p>
+      </div>
+    </section>
+
+    <!-- CLIENTS -->
+    <section id="clients">
+      <h2>Managing Clients</h2>
+      <p>Each client company gets their own account with a unique <strong>access key</strong> that lets them view their project dashboards. Clients never log in with a password — they use the key.</p>
+
+      <h3>Creating a Client</h3>
+      <div class="steps">
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Click the Clients tab</h4><p>At the top navigation of the admin panel.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Click "Add Client"</h4><p>A form appears asking for Name, Email, and Phone.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Fill in the details and Save</h4><p>An access key is automatically generated for them.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Share the access key</h4><p>Copy it from the table and send it to the client. They paste it at <strong>client.varunaat.in</strong>.</p></div></div>
+      </div>
+
+      <h3>Client Table Columns</h3>
+      <table class="doc-table">
+        <tr><th>Column</th><th>Meaning</th></tr>
+        <tr><td>Name</td><td>Company or person name</td></tr>
+        <tr><td>Email</td><td>Contact email for the client</td></tr>
+        <tr><td>Phone</td><td>Contact phone number</td></tr>
+        <tr><td>Access Key</td><td>Unique key the client uses to log into their dashboard. Click <strong>Rotate</strong> to generate a new one (invalidates old key).</td></tr>
+        <tr><td>Active</td><td>Toggle to enable/disable client access</td></tr>
+      </table>
+
+      <div class="callout info">
+        <span class="icon">💡</span>
+        <p>You can also set a <strong>custom access key</strong> if the client prefers a memorable word. Use the "Set Key" action in the table.</p>
+      </div>
+    </section>
+
+    <!-- PILOTS -->
+    <section id="pilots">
+      <h2>Managing Pilots</h2>
+      <p>Pilots are the field workers who fly drones and log tower inspection data. Each pilot gets a login ID and password for the Pilot App.</p>
+
+      <h3>Creating a Pilot</h3>
+      <div class="steps">
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Click the Pilots tab</h4></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Click "Add Pilot"</h4><p>Fill in: Name, Login ID, Password, Phone number.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Share credentials with the pilot</h4><p>They use these at <strong>pilot.varunaat.in</strong>.</p></div></div>
+      </div>
+
+      <h3>Pilot Table Actions</h3>
+      <table class="doc-table">
+        <tr><th>Action</th><th>What it does</th></tr>
+        <tr><td>Edit</td><td>Change name, phone, or reset password</td></tr>
+        <tr><td>Deactivate</td><td>Blocks pilot from logging in (keeps their historical data)</td></tr>
+        <tr><td>Delete</td><td>Permanently removes pilot account</td></tr>
+      </table>
+    </section>
+
+    <!-- PROJECTS -->
+    <section id="projects">
+      <h2>Managing Projects</h2>
+      <p>A <strong>project</strong> is a tower inspection assignment — it has a client, a set of towers (numbered), a start date, and optionally a KML file that gives towers their GPS coordinates.</p>
+
+      <h3>Creating a Project</h3>
+      <div class="steps">
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Click "New Project"</h4><p>On the Projects tab.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Fill in the form</h4>
+          <p><strong>Name</strong> — project title (e.g. "Rajkot Line 2")<br>
+          <strong>Client</strong> — pick from existing clients<br>
+          <strong>Total Towers</strong> — how many towers in the project<br>
+          <strong>Start Date</strong> — when field work begins<br>
+          <strong>Require Photo</strong> — toggle if pilots must upload a photo for Start/End Day<br>
+          <strong>KML File</strong> — optional GPS route file; gives each tower lat/lng coordinates</p>
+        </div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Click Save</h4><p>Towers are auto-generated (Tower 1 to N). The client can now see it in their dashboard.</p></div></div>
+      </div>
+
+      <div class="callout info">
+        <span class="icon">🗺️</span>
+        <p>A <strong>KML file</strong> is exported from Google Earth or GIS software. It defines the route and tower positions on the map. Without it, the map in the Client Dashboard won't show tower locations.</p>
+      </div>
+
+      <h3>Projects Table Columns</h3>
+      <table class="doc-table">
+        <tr><th>Column</th><th>Meaning</th></tr>
+        <tr><td>Name</td><td>Project title</td></tr>
+        <tr><td>Client</td><td>Which client this belongs to</td></tr>
+        <tr><td>Total Towers</td><td>Total number of towers to inspect</td></tr>
+        <tr><td>Start Date</td><td>Field work start date</td></tr>
+        <tr><td>Actions</td><td>Open details, Edit, Delete</td></tr>
+      </table>
+    </section>
+
+    <!-- PROJECT DETAIL -->
+    <section id="project-detail">
+      <h2>Project Detail View</h2>
+      <p>Click <strong>Open</strong> on any project to see its full detail page with live progress tracking.</p>
+
+      <h3>KPI Summary Bar</h3>
+      <div class="card-grid">
+        <div class="kpi-card blue"><span class="icon">🗼</span><span class="label">Total Towers</span><span class="value">e.g. 250</span></div>
+        <div class="kpi-card green"><span class="icon">📸</span><span class="label">Capture %</span><span class="value">e.g. 68%</span></div>
+        <div class="kpi-card orange"><span class="icon">☁️</span><span class="label">Upload %</span><span class="value">e.g. 52%</span></div>
+        <div class="kpi-card red"><span class="icon">⏳</span><span class="label">Days Remaining</span><span class="value">e.g. 14</span></div>
+      </div>
+
+      <h3>Tower Table</h3>
+      <p>Each row is one tower. You can directly toggle:</p>
+      <table class="doc-table">
+        <tr><th>Column</th><th>Meaning</th></tr>
+        <tr><td>Tower No.</td><td>Tower identifier (e.g. T-1, T-2…)</td></tr>
+        <tr><td>Captured ✓</td><td>Drone data has been collected for this tower</td></tr>
+        <tr><td>Uploaded ✓</td><td>Data has been processed and uploaded</td></tr>
+        <tr><td>Issue ⚠️</td><td>Tower has an access/replacement issue</td></tr>
+      </table>
+
+      <h3>Field Logs Table</h3>
+      <p>Shows every Start Day and End Day entry logged by pilots — who did it, when, and which towers they reached.</p>
+
+      <h3>Actions</h3>
+      <table class="doc-table">
+        <tr><th>Button</th><th>What it does</th></tr>
+        <tr><td>Save Changes</td><td>Saves any checkbox changes made in the tower table</td></tr>
+        <tr><td>Add Tower</td><td>Adds an extra tower beyond the original count</td></tr>
+        <tr><td>Sync KML</td><td>Re-parses the stored KML file to update tower coordinates (use after KML changes)</td></tr>
+        <tr><td>Reset Data</td><td>⚠️ Clears ALL tower progress and logs. Use only for testing.</td></tr>
+      </table>
+
+      <div class="callout warning">
+        <span class="icon">⚠️</span>
+        <p><strong>Reset Data</strong> is irreversible. It wipes all captured/uploaded status and field logs for the project. Only use this on test projects.</p>
+      </div>
+    </section>
+
+    <!-- BULK DATA UPDATE -->
+    <section id="data-update">
+      <h2>Bulk Data Update</h2>
+      <p>When you need to update many towers at once (e.g. a pilot submitted data on paper and you're entering it), use the <strong>Admin Data Update</strong> tab.</p>
+
+      <div class="steps">
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Select Project and Date</h4><p>Choose which project and which date this data applies to.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Enter tower range</h4><p>Enter "From" and "To" tower numbers (max 1000 at once) and click Load.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Check the boxes</h4><p>Tick <strong>Capture</strong>, <strong>Upload</strong>, or <strong>Issue</strong> for each tower. Use the header checkbox to select all.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Set Issue reason (if any)</h4><p>For towers marked Issue, a modal will ask for the reason.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Optionally attribute to a Pilot</h4><p>Select which pilot did this work for proper attribution in reports.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><h4>Click Submit</h4><p>Data is saved and tower status is updated immediately.</p></div></div>
+      </div>
+    </section>
+
+    <!-- ACCESS KEYS -->
+    <section id="access-keys">
+      <h2>Client Access Keys</h2>
+      <p>Access keys are how clients authenticate to their read-only dashboard. There is no password for clients — just the key.</p>
+
+      <table class="doc-table">
+        <tr><th>Action</th><th>When to use</th></tr>
+        <tr><td><strong>Rotate Key</strong></td><td>When a client's key is compromised or you want to revoke access temporarily. Old key stops working immediately.</td></tr>
+        <tr><td><strong>Set Custom Key</strong></td><td>When the client wants a memorable key (e.g. "RAJKOT2025"). Must be unique across all clients.</td></tr>
+        <tr><td><strong>Deactivate Client</strong></td><td>Blocks all access without deleting the account.</td></tr>
+      </table>
+    </section>
+
+    <!-- ROLES -->
+    <section id="roles">
+      <h2>Roles & Permissions</h2>
+      <div class="perm-grid">
+        <div class="perm-col">
+          <div class="head a">🔴 Admin</div>
+          <ul>
+            <li>Create / edit / delete projects</li>
+            <li>Manage clients and access keys</li>
+            <li>Create / edit / delete pilots</li>
+            <li>Bulk update tower data</li>
+            <li>View all field logs</li>
+            <li>Reset project data</li>
+            <li>Upload / sync KML files</li>
+          </ul>
+        </div>
+        <div class="perm-col">
+          <div class="head p">🟢 Pilot</div>
+          <ul>
+            <li>Log Start Day / End Day</li>
+            <li>Upload field photos</li>
+            <li>Submit tower data updates</li>
+            <li>View own projects only</li>
+            <li>Mark non-working days</li>
+          </ul>
+        </div>
+        <div class="perm-col">
+          <div class="head c">🔵 Client</div>
+          <ul>
+            <li>View project dashboard</li>
+            <li>See KPI metrics</li>
+            <li>View tower map</li>
+            <li>View field photos</li>
+            <li>See progress charts</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  प्रतिबिम्ब: Drone Inspection Platform — Admin Guide &nbsp;|&nbsp; admin.varunaat.in
+</footer>
+</body>
+</html>
