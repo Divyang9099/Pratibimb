@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, auth, pageStore } from './api';
+import { useLiveData } from './useProjectLive';
 import { warmBackend } from './components/WarmUp.jsx';
 import Login from './components/Login.jsx';
 import StartEndDay from './components/StartEndDay.jsx';
@@ -13,14 +14,23 @@ export default function App() {
   const [projects, setProjects] = useState([]);
   const [projectId, setProjectId] = useState(pageStore.getProject);
 
-  useEffect(() => {
+  // Only log out if the load failed because the session is no longer valid;
+  // a network blip should not eject a pilot who is mid-shift in the field.
+  const loadProjects = () => {
     if (!user) return;
     api
       .get('/pilot/projects')
       .then((r) => setProjects(r.data.projects))
-      .catch(() => logout());
+      .catch((e) => { if (e.response?.status === 401) logout(); });
+  };
+
+  useEffect(() => {
+    loadProjects();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Pick up newly assigned projects (or renames) without a refresh.
+  useLiveData(loadProjects);
 
   function logout() {
     auth.clear();
