@@ -69,3 +69,23 @@ export function notifyProjectUpdate(projectId) {
     console.log(`✓ Socket broadcasted project-update for project:${projectId}`);
   }
 }
+
+// Global change signal for screens that belong to no project room — the
+// admin Projects/Clients/Pilots/Users lists, the pilot's project picker.
+// project-update alone can never reach these: they are not scoped to a
+// project, so there is no room to deliver into.
+export function notifyDataChange(resource) {
+  if (io) io.emit('data-change', { resource });
+}
+
+// Express middleware: after ANY successful mutating request on the router it
+// is mounted on, broadcast a data-change. Registering this once is what makes
+// coverage complete — a newly added route cannot silently forget to notify,
+// which is exactly how the list screens ended up dead in the first place.
+export function broadcastOnMutation(req, res, next) {
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
+  res.on('finish', () => {
+    if (res.statusCode < 400) notifyDataChange(`${req.method} ${req.baseUrl}${req.path}`);
+  });
+  next();
+}

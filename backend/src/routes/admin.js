@@ -7,10 +7,13 @@ import DailyLog from '../models/DailyLog.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { buildDashboard } from '../services/analytics.js';
 import { previewKml, applyKmlToProject } from '../services/kmlSync.js';
-import { notifyProjectUpdate } from '../services/socket.js';
+import { notifyProjectUpdate, broadcastOnMutation } from '../services/socket.js';
 
 const router = Router();
 router.use(requireAuth, requireRole('admin'));
+// Every successful admin mutation broadcasts, so list screens stay live
+// without each route having to remember to notify.
+router.use(broadcastOnMutation);
 
 // Natural sort for tower numbers stored as strings ("2" before "10",
 // "25" before "250"). Falls back to text compare for non-numeric labels.

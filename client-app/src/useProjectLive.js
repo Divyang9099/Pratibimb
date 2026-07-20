@@ -39,6 +39,22 @@ socket.on('connect', () => {
   for (const projectId of subscribers.keys()) socket.emit('join-project', projectId);
 });
 
+// Subscribe to *any* successful mutation on the server, for screens that
+// belong to no project room — lists of projects, clients, pilots, users.
+// The socket still has to be opened here: a list screen may be the only thing
+// mounted, with no project selected at all.
+export function useLiveData(onChange) {
+  const cb = useRef(onChange);
+  cb.current = onChange;
+
+  useEffect(() => {
+    if (!socket.connected) socket.connect();
+    const handle = () => cb.current();
+    socket.on('data-change', handle);
+    return () => socket.off('data-change', handle);
+  }, []);
+}
+
 export function useProjectLive(projectId, onUpdate) {
   // Keep the latest callback without re-subscribing on every render.
   const cb = useRef(onUpdate);

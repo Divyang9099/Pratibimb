@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
+import { useLiveData } from '../useProjectLive';
 
 const empty = { name: '', contactEmail: '', contactPhone: '' };
 
@@ -13,6 +14,8 @@ export default function Clients() {
   const [setKeyId, setSetKeyId] = useState(null);
 
   const load = () => api.get('/admin/clients').then((r) => setClients(r.data.clients));
+  // Refresh whenever anything changes server-side, from any app or user.
+  useLiveData(load);
   useEffect(() => { load(); }, []);
 
   async function create(e) {

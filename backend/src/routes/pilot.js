@@ -5,10 +5,11 @@ import DailyLog from '../models/DailyLog.js';
 import User from '../models/User.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { uploadImage } from '../services/cloudinary.js';
-import { notifyProjectUpdate } from '../services/socket.js';
+import { notifyProjectUpdate, broadcastOnMutation } from '../services/socket.js';
 
 const router = Router();
 router.use(requireAuth, requireRole('pilot'));
+router.use(broadcastOnMutation);
 
 // Helper: return all logs for this pilot + project on a specific date.
 async function getTodayLogs(projectId, pilotId, dateStr) {

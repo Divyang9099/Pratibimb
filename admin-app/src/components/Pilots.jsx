@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
+import { useLiveData } from '../useProjectLive';
 
 const empty = { name: '', loginId: '', password: '', phone: '' };
 
@@ -12,6 +13,8 @@ export default function Pilots() {
   const [revealed, setRevealed] = useState({}); // { [pilotId]: true } -> show password
 
   const load = () => api.get('/admin/pilots').then((r) => setPilots(r.data.pilots));
+  // Refresh whenever anything changes server-side, from any app or user.
+  useLiveData(load);
   useEffect(() => {
     load();
   }, []);

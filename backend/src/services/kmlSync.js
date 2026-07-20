@@ -91,9 +91,15 @@ function buildDiff(existing, kmlByNumber) {
   }
 
   // Towers we know about that this KML does not mention. Already-stale ones
-  // are not re-reported — they were flagged by an earlier upload.
+  // are counted separately, not re-reported as newly dropped — they were
+  // flagged by an earlier upload and this file simply doesn't revive them.
+  let alreadyStale = 0;
   for (const t of existing) {
-    if (kmlByNumber.has(t.number) || t.inKml === false) continue;
+    if (kmlByNumber.has(t.number)) continue;
+    if (t.inKml === false) {
+      alreadyStale += 1;
+      continue;
+    }
     missing.push({
       number: t.number,
       captured: !!t.captured,
@@ -101,7 +107,7 @@ function buildDiff(existing, kmlByNumber) {
     });
   }
 
-  return { added, moved, restored, missing, unchanged };
+  return { added, moved, restored, missing, unchanged, alreadyStale };
 }
 
 // Turn the raw diff into the summary the admin UI renders.
@@ -151,6 +157,8 @@ function summarise(diff, kmlByNumber, duplicates, existing, routePoints) {
     unchanged: diff.unchanged,
     restored: diff.restored.length,
     missing: diff.missing.length,
+    // Dropped by an earlier KML and not revived by this one.
+    alreadyStale: diff.alreadyStale,
     missingWithProgress: missingWithProgress.length,
     // Proof for the admin that no field work is touched by this operation.
     preservedProgress,

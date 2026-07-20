@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api';
 import ProjectDetail from './ProjectDetail.jsx';
 import KmlReplace from './KmlReplace.jsx';
+import { useLiveData } from '../useProjectLive';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -22,6 +23,8 @@ export default function Projects() {
   const [notice, setNotice] = useState('');
 
   const load = () => api.get('/admin/projects').then((r) => setProjects(r.data.projects));
+  // Refresh whenever anything changes server-side, from any app or user.
+  useLiveData(load);
   useEffect(() => {
     load();
     api.get('/admin/clients').then((r) => setClients(r.data.clients));

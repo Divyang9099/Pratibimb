@@ -26,12 +26,23 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
   // surface a notice instead and let them choose when to reload.
   const [staleNotice, setStaleNotice] = useState(false);
   const selfSaveRef = useRef(0);
+  // loadTable is declared below; hold it in a ref so the live handler can call
+  // the current version without depending on declaration order.
+  const loadTableRef = useRef(null);
 
   useProjectLive(projectId, () => {
     // Ignore the echo of our own save.
     if (Date.now() - selfSaveRef.current < 5000) return;
-    // Nothing loaded means nothing to protect — the next load is fresh anyway.
-    if (rowsRef.current) setStaleNotice(true);
+    const current = rowsRef.current;
+    if (!current) return; // nothing loaded, nothing to protect
+
+    // Only a row the pilot has actually ticked is worth protecting. With no
+    // unsaved ticks we just reload silently, so the common case is live.
+    const hasUnsavedTicks = current.some(
+      (r) => r.dataCapture || r.dataUpload || r.issueReplace
+    );
+    if (hasUnsavedTicks) setStaleNotice(true);
+    else loadTableRef.current?.();
   });
 
   useEffect(() => {
@@ -56,6 +67,8 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
     if (t - f > 1000) return 'Range too large (max 1000 towers)';
     return null;
   }
+
+  loadTableRef.current = loadTable;
 
   async function loadTable() {
     const err = validateRange();

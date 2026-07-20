@@ -104,6 +104,13 @@ check('dashboard drops the stale issue note', dash.towerIssues.length === 0);
 // ---- v4: line 1-12 again. Dropped towers must come back with history. ----
 const previewRestore = await previewKml(project._id, makeKml(1, 12));
 check('preview reports 4 restored towers', previewRestore.restored === 4);
+check('preview reports 0 already-stale when all are revived', previewRestore.alreadyStale === 0);
+
+// A KML that revives none of the dropped towers reports them as already-stale,
+// not as freshly dropped — the admin should not see the same loss twice.
+const previewNoRevive = await previewKml(project._id, makeKml(1, 8));
+check('already-stale towers counted separately', previewNoRevive.alreadyStale === 4);
+check('already-stale towers are not double-counted as dropped', previewNoRevive.missing === 0);
 
 await applyKmlToProject(project._id, makeKml(1, 12), { fileName: 'v4.kml' });
 const v4 = Object.fromEntries((await Tower.find({ project: project._id }).lean()).map((t) => [t.number, t]));
