@@ -162,6 +162,36 @@ router.post('/end-day', async (req, res) => {
   }
 });
 
+// Correct the tower number on an already-saved start/end log — lets a pilot
+// fix a mistyped tower after Start Day or End Day is already locked in,
+// without reopening the whole session. Only the owning pilot may edit, and
+// only start/end logs carry a tower number.
+router.patch('/log/:logId/tower', async (req, res) => {
+  try {
+    const towerNo = String(req.body?.towerNo || '').trim();
+    if (!towerNo) {
+      return res.status(400).json({ error: 'Tower number is required' });
+    }
+
+    const log = await DailyLog.findOne({ _id: req.params.logId, pilot: req.user._id });
+    if (!log) return res.status(404).json({ error: 'Log not found' });
+    if (log.type === 'nonworking') {
+      return res.status(400).json({ error: 'Non-working day logs have no tower number' });
+    }
+
+    log.towerNo = towerNo;
+    await log.save();
+    // Broadcast on the project room: this is what makes the client dashboard,
+    // admin project detail, and every other pilot screen watching this
+    // project pick up the corrected tower number immediately.
+    notify(log.project);
+    res.json({ log });
+  } catch (err) {
+    console.error('PATCH /log/:logId/tower error:', err);
+    res.status(500).json({ error: err.message || 'Failed to update tower number' });
+  }
+});
+
 // Most recent unended session for End Day date auto-detect.
 router.get('/active-session/:projectId', async (req, res) => {
   try {

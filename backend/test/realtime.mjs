@@ -65,6 +65,12 @@ const put = (path, body, token) =>
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     body: JSON.stringify(body),
   });
+const patch = (path, body, token) =>
+  fetch(BASE + path, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify(body),
+  });
 
 const adminToken = (await (await post('/auth/login', { loginId: 'admin', password: 'pw' })).json()).token;
 const pilotToken = (await (await post('/auth/login', { loginId: 'pilot1', password: 'pw' })).json()).token;
@@ -97,8 +103,15 @@ async function expectBroadcast(label, fn) {
 }
 
 console.log('\n--- pilot actions (the main field flow) ---');
-await expectBroadcast('pilot POST /pilot/start-day', () =>
-  post('/pilot/start-day', { projectId, date: '2026-07-20', towerNo: '1', image: '', note: '' }, pilotToken)
+let startLogId;
+await expectBroadcast('pilot POST /pilot/start-day', async () => {
+  const res = await post('/pilot/start-day', { projectId, date: '2026-07-20', towerNo: '1', image: '', note: '' }, pilotToken);
+  const data = await res.json();
+  startLogId = data.log?._id;
+  return res;
+});
+await expectBroadcast('pilot PATCH /pilot/log/:logId/tower', () =>
+  patch(`/pilot/log/${startLogId}/tower`, { towerNo: '1b' }, pilotToken)
 );
 await expectBroadcast('pilot POST /pilot/data-update', () =>
   post('/pilot/data-update', {

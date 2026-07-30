@@ -56,6 +56,16 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
   const [status, setStatus] = useState(null);
   const [statusLoading, setStatusLoading] = useState(false);
 
+  // Editing a tower number that was already saved (Start Day already started,
+  // or End Day already ended/in progress). Saving PATCHes that log directly;
+  // the server's project-update broadcast then refreshes every other screen
+  // (admin project detail, client dashboard) that reads it — no extra wiring
+  // needed here beyond updating our own banner.
+  const [towerEdit, setTowerEdit] = useState(null); // { log, label }
+  const [towerEditValue, setTowerEditValue] = useState('');
+  const [towerEditBusy, setTowerEditBusy] = useState(false);
+  const [towerEditErr, setTowerEditErr] = useState('');
+
   // Both Start Day and End Day use today-status for the selected date.
   // Changing the date re-checks — pilot can log any date freely.
   useEffect(() => {
@@ -130,6 +140,41 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
     }
   }
 
+  function openTowerEdit(log, label) {
+    if (!log) return;
+    setTowerEditErr('');
+    setTowerEditValue(log.towerNo || '');
+    setTowerEdit({ log, label });
+  }
+
+  function closeTowerEdit() {
+    if (towerEditBusy) return;
+    setTowerEdit(null);
+    setTowerEditErr('');
+  }
+
+  async function saveTowerEdit() {
+    const value = towerEditValue.trim();
+    if (!value) { setTowerEditErr('Tower number is required'); return; }
+    setTowerEditBusy(true);
+    setTowerEditErr('');
+    try {
+      const { data } = await api.patch(`/pilot/log/${towerEdit.log._id}/tower`, { towerNo: value });
+      // Patch just the edited slot so the banner updates immediately; every
+      // other screen catches up on its own via the live broadcast.
+      setStatus((prev) => {
+        if (!prev) return prev;
+        const key = towerEdit.log.type === 'start' ? 'startLog' : 'endLog';
+        return { ...prev, [key]: data.log };
+      });
+      setTowerEdit(null);
+    } catch (err) {
+      setTowerEditErr(err.response?.data?.error || 'Failed to update tower number');
+    } finally {
+      setTowerEditBusy(false);
+    }
+  }
+
   // Derive what to show from status for the selected date.
   const s = status;
   const canAct = isStart
@@ -182,7 +227,11 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
       )}
       {projectId && !statusLoading && s && isStart && s.started && (
         <div className="status-banner warn">
-          <strong>Day already started</strong> at tower {s.startLog?.towerNo} — {fmtTime(s.startLog?.createdAt)}.
+          <strong>Day already started</strong> at tower {s.startLog?.towerNo}{' '}
+          <button type="button" className="tower-edit-link" onClick={() => openTowerEdit(s.startLog, 'Start tower')}>
+            Edit
+          </button>{' '}
+          — {fmtTime(s.startLog?.createdAt)}.
           {s.ended ? ' Session complete — go to Data Update.' : ' Go to End Day to close the session.'}
         </div>
       )}
@@ -200,13 +249,20 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
       )}
       {projectId && !statusLoading && s && !isStart && s.ended && (
         <div className="status-banner warn">
-          <strong>Day already ended</strong> at tower {s.endLog?.towerNo} — {fmtTime(s.endLog?.createdAt)}.
+          <strong>Day already ended</strong> at tower {s.endLog?.towerNo}{' '}
+          <button type="button" className="tower-edit-link" onClick={() => openTowerEdit(s.endLog, 'Close tower')}>
+            Edit
+          </button>{' '}
+          — {fmtTime(s.endLog?.createdAt)}.
           Go to Data Update to submit records.
         </div>
       )}
       {projectId && !statusLoading && s && !isStart && s.started && !s.ended && (
         <div className="status-banner ok">
-          Day in progress since {fmtTime(s.startLog?.createdAt)} (tower {s.startLog?.towerNo}).
+          Day in progress since {fmtTime(s.startLog?.createdAt)} (tower {s.startLog?.towerNo}{' '}
+          <button type="button" className="tower-edit-link" onClick={() => openTowerEdit(s.startLog, 'Start tower')}>
+            Edit
+          </button>).
           Fill in below to close the day.
         </div>
       )}
@@ -280,6 +336,38 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
       {/* Success message shown after submit (form hidden after status refresh) */}
       {!canAct && msg?.type === 'ok' && (
         <div className="ok" style={{ marginTop: 10 }}>{msg.text}</div>
+      )}
+
+      {/* Tower number edit modal — available even after the day is locked in */}
+      {towerEdit && (
+        <div className="issue-modal-backdrop" onClick={closeTowerEdit}>
+          <div className="issue-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="issue-modal-title">Edit {towerEdit.label.toLowerCase()} no.</div>
+            <p className="issue-modal-hint">
+              Corrects the {fmtDate(towerEdit.log.date)} log. Every screen showing this day
+              picks up the change right away.
+            </p>
+            <input
+              className="issue-modal-input"
+              style={{ minHeight: 44, resize: 'none' }}
+              value={towerEditValue}
+              onChange={(e) => setTowerEditValue(e.target.value)}
+              disabled={towerEditBusy}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); saveTowerEdit(); }
+                if (e.key === 'Escape') closeTowerEdit();
+              }}
+            />
+            {towerEditErr && <div className="error">{towerEditErr}</div>}
+            <div className="issue-modal-actions">
+              <button onClick={saveTowerEdit} disabled={towerEditBusy}>
+                {towerEditBusy ? 'Saving…' : 'Save'}
+              </button>
+              <button className="ghost" onClick={closeTowerEdit} disabled={towerEditBusy}>Cancel</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

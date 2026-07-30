@@ -30,6 +30,9 @@ await admin.save();
 const pilot = new User({ name: 'Pilot', loginId: 'pilot1', role: 'pilot' });
 await pilot.setPassword('pilot123');
 await pilot.save();
+const pilot2 = new User({ name: 'Pilot Two', loginId: 'pilot2', role: 'pilot' });
+await pilot2.setPassword('pilot123');
+await pilot2.save();
 const client = await Client.create({ name: 'PowerGrid', accessKey: 'TWR-DEMO1234' });
 const project = await Project.create({ name: 'Line A', client: client._id, totalTowers: 10 });
 await Tower.insertMany(
@@ -52,6 +55,12 @@ const post = (p, body, token) =>
     body: JSON.stringify(body),
   });
 const get = (p, token) => fetch(base + p, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+const patch = (p, body, token) =>
+  fetch(base + p, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify(body),
+  });
 
 try {
   // Health
@@ -111,6 +120,37 @@ try {
 
   // Range validation
   check('invalid range rejected', (await get(`/pilot/towers/${project._id}?from=9&to=2`, pilotLogin.token)).status === 400);
+
+  // Pilot corrects a tower number after Start Day is already locked in
+  const startDay2 = await (
+    await post(
+      '/pilot/start-day',
+      { projectId: project._id, date: '2026-07-21', towerNo: '3', image: 'data:image/jpeg;base64,x' },
+      pilotLogin.token
+    )
+  ).json();
+  check('start-day creates a log with tower 3', startDay2.log?.towerNo === '3');
+
+  const editTower = await (
+    await patch(`/pilot/log/${startDay2.log._id}/tower`, { towerNo: '7' }, pilotLogin.token)
+  ).json();
+  check('tower-no edit returns the updated log', editTower.log?.towerNo === '7');
+
+  const statusAfterEdit = await (
+    await get(`/pilot/today-status/${project._id}?date=2026-07-21`, pilotLogin.token)
+  ).json();
+  check('today-status reflects the edited tower no', statusAfterEdit.startLog?.towerNo === '7');
+
+  check(
+    'empty tower-no edit rejected',
+    (await patch(`/pilot/log/${startDay2.log._id}/tower`, { towerNo: '   ' }, pilotLogin.token)).status === 400
+  );
+
+  const pilot2Login = await (await post('/auth/login', { loginId: 'pilot2', password: 'pilot123', expectedRole: 'pilot' })).json();
+  check(
+    "editing another pilot's log is rejected",
+    (await patch(`/pilot/log/${startDay2.log._id}/tower`, { towerNo: '9' }, pilot2Login.token)).status === 404
+  );
 
   // KML parser
   const { parseKml } = await import('../src/services/kml.js');

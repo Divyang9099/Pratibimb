@@ -308,6 +308,24 @@ tr.already-done .tower-cell::after { content: ' ✓'; color: #ca8a04; font-size:
 .status-banner.err     { background: #fee2e2; color: #7f1d1d; border: 1px solid #fecaca; }
 .status-banner.loading { background: #f1f5f9; color: var(--muted); }
 
+/* ---- Inline tower-no edit trigger (inside status banners) ---- */
+.tower-edit-link {
+  min-height: auto;
+  height: auto;
+  background: transparent;
+  color: inherit;
+  border: 0;
+  padding: 0;
+  margin: 0 2px;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  vertical-align: baseline;
+}
+.tower-edit-link:active { transform: none; }
+
 /* ---- Non-working day toggle ---- */
 .nwd-toggle {
   display: flex;
