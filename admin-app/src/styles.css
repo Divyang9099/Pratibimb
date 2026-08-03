@@ -438,6 +438,7 @@ input, select, textarea {
 .tag.start      { background: var(--green); }
 .tag.end        { background: var(--accent); }
 .tag.nonworking { background: #d97706; }
+.tag.undo       { background: #dc2626; white-space: nowrap; }
 
 /* ---- Editing rows ---- */
 .grid td input,

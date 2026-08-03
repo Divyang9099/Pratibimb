@@ -9,18 +9,19 @@ function fmtUpdated(iso) {
   return new Date(iso).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-export default function NonWorkingDays({ days = [], issues = [] }) {
+const ACTION_LABEL = { capture: 'Data Capture', upload: 'Data Upload' };
+
+export default function NonWorkingDays({ days = [], issues = [], reverts = [] }) {
   const hasNwd = days.length > 0;
   const hasIssues = issues.length > 0;
-  if (!hasNwd && !hasIssues) return null;
+  const hasReverts = reverts.length > 0;
+  if (!hasNwd && !hasIssues && !hasReverts) return null;
 
   return (
     <div className="panel">
       <div className="panel-title">
         Non-Working Days / Issues
-        {(hasNwd || hasIssues) && (
-          <span className="nwd-count">{days.length + issues.length}</span>
-        )}
+        <span className="nwd-count">{days.length + issues.length + reverts.length}</span>
       </div>
 
       {hasNwd && (
@@ -61,6 +62,33 @@ export default function NonWorkingDays({ days = [], issues = [] }) {
                 <div className="nwd-pilot">
                   {t.pilotName && <span>{t.pilotName}</span>}
                   {t.updatedAt && <span style={{ display: 'block', fontSize: 11 }}>{fmtUpdated(t.updatedAt)}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {(hasNwd || hasIssues) && hasReverts && <div className="nwd-divider" />}
+
+      {hasReverts && (
+        <>
+          <div className="nwd-section-label">Corrections</div>
+          <div className="nwd-list">
+            {reverts.map((r, i) => (
+              <div key={i} className="nwd-item nwd-item--issue">
+                <div className="nwd-left">
+                  <span className="nwd-dot nwd-dot--issue" />
+                  <div>
+                    <div className="nwd-date">
+                      Tower {r.number} — {ACTION_LABEL[r.action] || r.action} un-marked
+                    </div>
+                    <div className="nwd-note">"{r.note}"</div>
+                  </div>
+                </div>
+                <div className="nwd-pilot">
+                  {r.pilotName && <span>{r.pilotName}</span>}
+                  {r.date && <span style={{ display: 'block', fontSize: 11 }}>{fmtUpdated(r.date)}</span>}
                 </div>
               </div>
             ))}

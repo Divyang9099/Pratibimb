@@ -1,5 +1,6 @@
 import Tower from '../models/Tower.js';
 import DailyLog from '../models/DailyLog.js';
+import TowerEvent from '../models/TowerEvent.js';
 import Project from '../models/Project.js';
 
 const dayKey = (d) => {
@@ -52,10 +53,17 @@ export async function buildDashboard(projectId) {
     .lean();
 
   // ---- Tower issues (issueReplace with a note) ----
+  // `number` is a String, so a Mongo sort would order it lexicographically
+  // ("10" before "2"). Sort numerically here instead.
   const issueTowers = await Tower.find({ project: projectId, issueReplace: true, inKml: { $ne: false }, notes: { $exists: true, $ne: '' } })
     .populate('capturedBy', 'name')
-    .sort({ number: 1 })
     .lean();
+  issueTowers.sort((a, b) => {
+    const na = parseInt(a.number, 10);
+    const nb = parseInt(b.number, 10);
+    if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
+    return String(a.number).localeCompare(String(b.number), undefined, { numeric: true });
+  });
 
   const towerIssues = issueTowers.map((t) => ({
     number: t.number,
@@ -77,6 +85,30 @@ export async function buildDashboard(projectId) {
   }));
 
   // ---- Daily activity (capture / upload per day, with tower range) ----
+  // Dates come from the immutable event log so a later save can't re-date
+  // earlier work. Towers completed before the event log existed fall back to
+  // their Tower.capturedAt/uploadedAt stamp.
+  const events = await TowerEvent.find({ project: projectId, effect: 'done' })
+    .sort({ date: 1 })
+    .select('number action date')
+    .lean();
+  const lastDone = { capture: new Map(), upload: new Map() };
+  events.forEach((e) => { lastDone[e.action].set(e.number, e.date); });
+
+  // ---- Reverted work (already-done towers later un-marked, with reason) ----
+  const revertLogs = await TowerEvent.find({ project: projectId, effect: 'revert' })
+    .populate('pilot', 'name')
+    .sort({ date: -1, createdAt: -1 })
+    .lean();
+
+  const reverts = revertLogs.map((e) => ({
+    number: e.number,
+    action: e.action,
+    date: e.date,
+    note: e.note || '',
+    pilotName: e.pilot?.name || '',
+  }));
+
   const dailyMap = new Map();
   const bump = (dateVal, field, towerNum) => {
     if (!dateVal) return;
@@ -90,8 +122,10 @@ export async function buildDashboard(projectId) {
       if (n > entry.towerMax) entry.towerMax = n;
     }
   };
-  captured.forEach((t) => bump(t.capturedAt, 'captured', t.number));
-  uploaded.forEach((t) => bump(t.uploadedAt, 'uploaded', t.number));
+  const captureDate = (t) => lastDone.capture.get(t.number) || t.capturedAt;
+  const uploadDate = (t) => lastDone.upload.get(t.number) || t.uploadedAt;
+  captured.forEach((t) => bump(captureDate(t), 'captured', t.number));
+  uploaded.forEach((t) => bump(uploadDate(t), 'uploaded', t.number));
 
   // Merge non-working days into the activity map (0 towers, labelled by date)
   nonWorkingLogs.forEach((l) => {
@@ -129,8 +163,8 @@ export async function buildDashboard(projectId) {
   });
 
   // ---- Prediction box ----
-  const captureDays = new Set(captured.map((t) => dayKey(t.capturedAt))).size;
-  const uploadDays = new Set(uploaded.map((t) => dayKey(t.uploadedAt))).size;
+  const captureDays = new Set(captured.map((t) => dayKey(captureDate(t)))).size;
+  const uploadDays = new Set(uploaded.map((t) => dayKey(uploadDate(t)))).size;
   const dailyCaptureAvg = captureDays ? Math.round((capturedDone / captureDays) * 10) / 10 : 0;
   const dailyUploadAvg = uploadDays ? Math.round((uploadedDone / uploadDays) * 10) / 10 : 0;
 
@@ -192,5 +226,6 @@ export async function buildDashboard(projectId) {
     prediction,
     nonWorkingDays,
     towerIssues,
+    reverts,
   };
 }

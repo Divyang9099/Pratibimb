@@ -2,7 +2,20 @@ import { useEffect, useState, useRef } from 'react';
 import { api } from '../api';
 import { useProjectLive, useLiveData } from '../useProjectLive';
 
-const today = () => new Date().toISOString().slice(0, 10);
+// Local calendar date — toISOString() is UTC and would pre-fill yesterday
+// for any save made before the local UTC offset has elapsed (before 05:30 IST).
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const REVERT_NOTE = { dataCapture: 'captureRevertNote', dataUpload: 'uploadRevertNote' };
+const RECORDED_FLAG = { dataCapture: 'alreadyCaptured', dataUpload: 'alreadyUploaded' };
+const FIELD_LABEL = { dataCapture: 'Data Capture', dataUpload: 'Data Upload' };
+
+// True only for work the server has already recorded — a tick made in this
+// session can still be cleared freely.
+const isRecorded = (row, field) => !!row[RECORDED_FLAG[field]];
 
 export default function DataUpdate({ user, projects, projectId, onProjectChange }) {
   const [date, setDate] = useState(today());
@@ -20,6 +33,12 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
   const [issueModal, setIssueModal] = useState(null); // { idx, towerNo }
   const [issueInput, setIssueInput] = useState('');
   const issueInputRef = useRef(null);
+
+  // Un-ticking work already recorded on an earlier day is destructive, so it
+  // asks for a reason first — an accidental click can't silently erase it.
+  const [revertModal, setRevertModal] = useState(null); // { idx, field, towerNo }
+  const [revertInput, setRevertInput] = useState('');
+  const revertInputRef = useRef(null);
 
   // A loaded table holds unsaved toggles, so a live update must never reload
   // it automatically — that would silently discard a pilot's field work. We
@@ -61,6 +80,12 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
     }
   }, [issueModal]);
 
+  useEffect(() => {
+    if (revertModal) {
+      setTimeout(() => revertInputRef.current?.focus(), 50);
+    }
+  }, [revertModal]);
+
   function validateRange() {
     const f = parseInt(from, 10);
     const t = parseInt(to, 10);
@@ -101,9 +126,33 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
         // Turning OFF: clear the issue
         setRows(prev => prev.map((r, i) => i === idx ? { ...r, issueReplace: false, issueNote: '' } : r));
       }
-    } else {
-      setRows(prev => prev.map((r, i) => i === idx ? { ...r, [field]: !r[field] } : r));
+      return;
     }
+
+    const row = rows[idx];
+    if (row[field] && isRecorded(row, field)) {
+      setRevertInput(row[REVERT_NOTE[field]] || '');
+      setRevertModal({ idx, field, towerNo: row.number });
+      return;
+    }
+    setRows(prev => prev.map((r, i) =>
+      i === idx ? { ...r, [field]: !r[field], [REVERT_NOTE[field]]: '' } : r
+    ));
+  }
+
+  function confirmRevert() {
+    if (!revertInput.trim()) return;
+    const { idx, field } = revertModal;
+    setRows(prev => prev.map((r, i) =>
+      i === idx ? { ...r, [field]: false, [REVERT_NOTE[field]]: revertInput.trim() } : r
+    ));
+    setRevertModal(null);
+    setRevertInput('');
+  }
+
+  function cancelRevert() {
+    setRevertModal(null);
+    setRevertInput('');
   }
 
   function confirmIssue() {
@@ -124,13 +173,34 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
       // Bulk-check issues: open a single modal for all
       setIssueInput('');
       setIssueModal({ idx: 'all', towerNo: 'all selected' });
-    } else {
-      setRows(prev => prev.map(r => ({
-        ...r,
-        [field]: checked,
-        ...(field === 'issueReplace' && !checked ? { issueNote: '' } : {}),
-      })));
+      return;
     }
+    // Bulk-clearing a column can wipe work recorded on earlier days, so it
+    // takes one reason covering every already-recorded row it touches.
+    if (!checked && field !== 'issueReplace' && rows.some(r => r[field] && isRecorded(r, field))) {
+      setRevertInput('');
+      setRevertModal({ idx: 'all', field, towerNo: 'all recorded' });
+      return;
+    }
+    setRows(prev => prev.map(r => ({
+      ...r,
+      [field]: checked,
+      ...(field === 'issueReplace' && !checked ? { issueNote: '' } : {}),
+      ...(REVERT_NOTE[field] ? { [REVERT_NOTE[field]]: '' } : {}),
+    })));
+  }
+
+  function confirmRevertAll() {
+    if (!revertInput.trim()) return;
+    const { field } = revertModal;
+    const note = revertInput.trim();
+    setRows(prev => prev.map(r => ({
+      ...r,
+      [field]: false,
+      [REVERT_NOTE[field]]: r[field] && isRecorded(r, field) ? note : '',
+    })));
+    setRevertModal(null);
+    setRevertInput('');
   }
 
   function confirmIssueAll() {
@@ -163,6 +233,15 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
       });
       setMsg({ type: 'ok', text: `Saved ${data.updated} towers.` });
       setStaleNotice(false);
+      // What we just saved is now recorded work, so un-ticking it from here
+      // counts as a revert and needs a reason like any earlier day would.
+      setRows(prev => prev && prev.map(r => ({
+        ...r,
+        alreadyCaptured: r.dataCapture,
+        alreadyUploaded: r.dataUpload,
+        captureRevertNote: '',
+        uploadRevertNote: '',
+      })));
     } catch (e) {
       setMsg({ type: 'err', text: e.response?.data?.error || 'Failed to save' });
     } finally {
@@ -170,9 +249,20 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
     }
   }
 
+  // Drops this session's unsaved ticks and returns the table to what the
+  // server last reported. Clearing already-recorded work is a revert and has
+  // to go through the reason prompt instead.
   function resetTable() {
     setRows(prev =>
-      prev ? prev.map(r => ({ ...r, dataCapture: false, dataUpload: false, issueReplace: false, issueNote: '' })) : prev
+      prev ? prev.map(r => ({
+        ...r,
+        dataCapture: r.alreadyCaptured,
+        dataUpload: r.alreadyUploaded,
+        issueReplace: false,
+        issueNote: '',
+        captureRevertNote: '',
+        uploadRevertNote: '',
+      })) : prev
     );
   }
 
@@ -288,6 +378,13 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
                             {r.issueNote.length > 18 ? r.issueNote.slice(0, 18) + '…' : r.issueNote}
                           </div>
                         )}
+                        {REVERT_NOTE[field] && r[REVERT_NOTE[field]] && (
+                          <div className="issue-note-chip" title={r[REVERT_NOTE[field]]}>
+                            Undo: {r[REVERT_NOTE[field]].length > 14
+                              ? r[REVERT_NOTE[field]].slice(0, 14) + '…'
+                              : r[REVERT_NOTE[field]]}
+                          </div>
+                        )}
                       </td>
                     ))}
                   </tr>
@@ -335,6 +432,45 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
                 Confirm
               </button>
               <button className="ghost" onClick={cancelIssue}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reason required to un-mark work already recorded on an earlier day */}
+      {revertModal && (
+        <div className="issue-modal-backdrop" onClick={cancelRevert}>
+          <div className="issue-modal" onClick={e => e.stopPropagation()}>
+            <div className="issue-modal-title">
+              Undo {FIELD_LABEL[revertModal.field]}
+              {revertModal.idx !== 'all'
+                ? ` — Tower ${revertModal.towerNo}`
+                : ' — all recorded towers'}
+            </div>
+            <p className="issue-modal-hint">
+              This tower was already recorded as done. Why is it being un-marked?
+              The reason is saved to the project history.
+            </p>
+            <textarea
+              ref={revertInputRef}
+              className="issue-modal-input"
+              value={revertInput}
+              onChange={e => setRevertInput(e.target.value)}
+              rows={3}
+              placeholder="e.g. Marked by mistake, Data corrupted, Re-shoot required…"
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); revertModal.idx === 'all' ? confirmRevertAll() : confirmRevert(); }
+                if (e.key === 'Escape') cancelRevert();
+              }}
+            />
+            <div className="issue-modal-actions">
+              <button
+                onClick={revertModal.idx === 'all' ? confirmRevertAll : confirmRevert}
+                disabled={!revertInput.trim()}
+              >
+                Confirm undo
+              </button>
+              <button className="ghost" onClick={cancelRevert}>Cancel</button>
             </div>
           </div>
         </div>

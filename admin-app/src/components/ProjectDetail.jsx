@@ -76,25 +76,72 @@ export default function ProjectDetail({ projectId, onBack }) {
     setEdits({});
   }
 
-  async function saveEdits() {
-    if (!dirty) return;
+  // Un-marking work that is already recorded needs a reason, same as the
+  // pilot and Data Update screens. One reason covers every reversal in a
+  // single save.
+  const [revertPrompt, setRevertPrompt] = useState(null); // { numbers[] }
+  const [revertNote, setRevertNote] = useState('');
+  const [saveErr, setSaveErr] = useState('');
+
+  function buildRows() {
+    const byNumber = new Map(towers.map((t) => [t.number, t]));
+    return Object.entries(edits).map(([number, e]) => ({
+      number,
+      dataCapture: e.captured,
+      dataUpload: e.uploaded,
+      issueReplace: e.issueReplace,
+      // Preserve any existing issue note on the tower.
+      issueNote: byNumber.get(number)?.notes || '',
+      _wasCaptured: !!byNumber.get(number)?.captured,
+      _wasUploaded: !!byNumber.get(number)?.uploaded,
+    }));
+  }
+
+  function revertedNumbers(rows) {
+    return rows
+      .filter((r) => (r._wasCaptured && !r.dataCapture) || (r._wasUploaded && !r.dataUpload))
+      .map((r) => r.number);
+  }
+
+  async function postRows(rows, note) {
     setSaving(true);
+    setSaveErr('');
     try {
-      const byNumber = new Map(towers.map((t) => [t.number, t]));
-      const rows = Object.entries(edits).map(([number, e]) => ({
-        number,
-        dataCapture: e.captured,
-        dataUpload: e.uploaded,
-        issueReplace: e.issueReplace,
-        // Preserve any existing issue note on the tower.
-        issueNote: byNumber.get(number)?.notes || '',
-      }));
-      await api.post(`/admin/projects/${projectId}/data-update`, { rows });
+      await api.post(`/admin/projects/${projectId}/data-update`, {
+        rows: rows.map(({ _wasCaptured, _wasUploaded, ...r }) => ({
+          ...r,
+          ...(_wasCaptured && !r.dataCapture ? { captureRevertNote: note } : {}),
+          ...(_wasUploaded && !r.dataUpload ? { uploadRevertNote: note } : {}),
+        })),
+      });
       setEdits({});
+      setRevertPrompt(null);
+      setRevertNote('');
       await loadAll();
+    } catch (e) {
+      setSaveErr(e.response?.data?.error || 'Failed to save changes');
     } finally {
       setSaving(false);
     }
+  }
+
+  async function saveEdits() {
+    if (!dirty) return;
+    const rows = buildRows();
+    const reverts = revertedNumbers(rows);
+    if (reverts.length) {
+      setRevertNote('');
+      setSaveErr('');
+      setRevertPrompt({ numbers: reverts });
+      return;
+    }
+    await postRows(rows, '');
+  }
+
+  async function confirmRevert() {
+    const note = revertNote.trim();
+    if (!note) return;
+    await postRows(buildRows(), note);
   }
 
   const [newTower, setNewTower] = useState('');
@@ -243,6 +290,8 @@ export default function ProjectDetail({ projectId, onBack }) {
             </table>
           </div>
 
+          {saveErr && <div className="error" style={{ marginTop: 8 }}>{saveErr}</div>}
+
           {dirty && (
             <div className="save-bar">
               <span className="save-bar-text">
@@ -266,22 +315,26 @@ export default function ProjectDetail({ projectId, onBack }) {
                   <th>Date</th>
                   <th>Tower</th>
                   <th>Pilot</th>
+                  <th>Reason</th>
                 </tr>
               </thead>
               <tbody>
                 {logs.map((l) => (
                   <tr key={l._id}>
                     <td>
-                      <span className={`tag ${l.type}`}>{l.type}</span>
+                      <span className={`tag ${l.type}`}>
+                        {l.type === 'undo' ? `undo ${l.action}` : l.type}
+                      </span>
                     </td>
                     <td>{new Date(l.date).toLocaleDateString()}</td>
                     <td>{l.towerNo}</td>
                     <td>{l.pilot?.name || '—'}</td>
+                    <td className="muted" title={l.note || ''}>{l.note || '—'}</td>
                   </tr>
                 ))}
                 {!logs.length && (
                   <tr>
-                    <td colSpan="4" className="muted center">
+                    <td colSpan="5" className="muted center">
                       No logs yet.
                     </td>
                   </tr>
@@ -291,6 +344,42 @@ export default function ProjectDetail({ projectId, onBack }) {
           </div>
         </div>
       </div>
+
+      {/* Reason required before un-marking already-recorded work */}
+      {revertPrompt && (
+        <div className="issue-modal-backdrop" onClick={() => !saving && setRevertPrompt(null)}>
+          <div className="issue-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="issue-modal-title">Reason for un-marking</div>
+            <p className="issue-modal-hint">
+              You are clearing recorded work on tower{revertPrompt.numbers.length > 1 ? 's' : ''}{' '}
+              {revertPrompt.numbers.join(', ')}. The reason is saved to the project history and
+              shown to the client.
+            </p>
+            <textarea
+              className="issue-modal-input"
+              value={revertNote}
+              onChange={(e) => setRevertNote(e.target.value)}
+              rows={3}
+              autoFocus
+              disabled={saving}
+              placeholder="e.g. Marked by mistake, Re-flight required…"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); confirmRevert(); }
+                if (e.key === 'Escape' && !saving) setRevertPrompt(null);
+              }}
+            />
+            {saveErr && <div className="error">{saveErr}</div>}
+            <div className="issue-modal-actions">
+              <button onClick={confirmRevert} disabled={!revertNote.trim() || saving}>
+                {saving ? 'Saving…' : 'Confirm'}
+              </button>
+              <button className="ghost" onClick={() => setRevertPrompt(null)} disabled={saving}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

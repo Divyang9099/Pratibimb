@@ -6,6 +6,7 @@ import './models/Client.js';
 import './models/Project.js';
 import './models/Tower.js';
 import './models/DailyLog.js';
+import './models/TowerEvent.js';
 
 import authRoutes from './routes/auth.js';
 import clientRoutes from './routes/client.js';

@@ -4,7 +4,12 @@ import ProjectDetail from './ProjectDetail.jsx';
 import KmlReplace from './KmlReplace.jsx';
 import { useLiveData } from '../useProjectLive';
 
-const today = () => new Date().toISOString().slice(0, 10);
+// Local calendar date, not UTC — otherwise a project created late in the
+// evening (or early morning) gets yesterday's start date by default.
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 export default function Projects() {
   const [projects, setProjects] = useState([]);

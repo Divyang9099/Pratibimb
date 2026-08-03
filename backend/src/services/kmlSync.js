@@ -141,23 +141,17 @@ function summarise(diff, kmlByNumber, duplicates, existing, routePoints) {
 
   const preservedProgress = existing.filter((t) => t.captured || t.uploaded).length;
 
-  // Towers an *earlier* KML already dropped and this one does not bring back.
-  // Not counted in `missing` (nothing changes for them), but worth showing:
-  // otherwise "dropped: 0" reads as "nothing is excluded" when it isn't.
-  const alreadyStale = existing.filter(
-    (t) => t.inKml === false && !kmlByNumber.has(t.number)
-  ).length;
-
   return {
     kmlTowers: kmlByNumber.size,
     routePoints,
-    alreadyStale,
     added: diff.added.length,
     moved: diff.moved.length,
     unchanged: diff.unchanged,
     restored: diff.restored.length,
     missing: diff.missing.length,
-    // Dropped by an earlier KML and not revived by this one.
+    // Towers an *earlier* KML already dropped that this one does not bring
+    // back. Not counted in `missing` (nothing changes for them), but worth
+    // showing: otherwise "dropped: 0" reads as "nothing is excluded".
     alreadyStale: diff.alreadyStale,
     missingWithProgress: missingWithProgress.length,
     // Proof for the admin that no field work is touched by this operation.
@@ -258,6 +252,9 @@ export async function applyKmlToProject(projectId, kml, { fileName = '', userId 
 
   return {
     ...summary,
+    // How many towers this apply actually wrote geometry for — the count the
+    // admin's "Sync KML → map" confirmation reports back.
+    updated: byNumber.size,
     totalTowers: { from: project.totalTowers || 0, to: byNumber.size },
     kmlVersion: (project.kmlVersion || 0) + 1,
   };

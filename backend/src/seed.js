@@ -5,6 +5,7 @@ import Client from './models/Client.js';
 import Project from './models/Project.js';
 import Tower from './models/Tower.js';
 import DailyLog from './models/DailyLog.js';
+import TowerEvent from './models/TowerEvent.js';
 
 // Seed credentials come from the environment. They are deliberately NOT
 // hardcoded: this repo is public, and a password committed here is a password
@@ -48,6 +49,7 @@ async function run() {
     Project.deleteMany({}),
     Tower.deleteMany({}),
     DailyLog.deleteMany({}),
+    TowerEvent.deleteMany({}),
   ]);
 
   console.log('Wiped all existing records. Seeding primary users...');

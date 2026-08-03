@@ -79,8 +79,14 @@ export default function App() {
 
   // First load for a project, plus a slow poll as a safety net in case a
   // socket event is missed or the connection is down.
+  //
+  // Keyed on the access key rather than the whole `session` object: the live
+  // handler above replaces `session` on every data-change broadcast, so
+  // depending on the object identity re-ran this entire retrying fetch on any
+  // unrelated mutation anywhere in the system.
+  const sessionKey = session?.key || '';
   useEffect(() => {
-    if (!session || !projectId) return;
+    if (!sessionKey || !projectId) return;
     pageStore.setProject(projectId);
     let active = true;
 
@@ -88,7 +94,7 @@ export default function App() {
       setLoading(true);
       try {
         // Retry through cold-starts on the first load only.
-        const data = await withRetry(() => fetchDashboard(projectId, session.key));
+        const data = await withRetry(() => fetchDashboard(projectId, sessionKey));
         if (active) { setDashboard(data); setError(''); }
       } catch (e) {
         if (active) setError(e.response?.data?.error || 'Failed to load dashboard');
@@ -99,7 +105,7 @@ export default function App() {
 
     const t = setInterval(refresh, 30000);
     return () => { active = false; clearInterval(t); };
-  }, [session, projectId, refresh]);
+  }, [sessionKey, projectId, refresh]);
 
   function logout() {
     keyStore.clear();

@@ -4,10 +4,12 @@ import Client from '../models/Client.js';
 import Project from '../models/Project.js';
 import Tower from '../models/Tower.js';
 import DailyLog from '../models/DailyLog.js';
+import TowerEvent from '../models/TowerEvent.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { buildDashboard } from '../services/analytics.js';
 import { previewKml, applyKmlToProject } from '../services/kmlSync.js';
 import { notifyProjectUpdate, broadcastOnMutation } from '../services/socket.js';
+import { collectReverts, towerEventsFor } from '../services/towerEvents.js';
 
 const router = Router();
 router.use(requireAuth, requireRole('admin'));
@@ -344,6 +346,7 @@ router.post('/projects/:id/sync-kml', async (req, res) => {
 router.delete('/projects/:id', async (req, res) => {
   await Tower.deleteMany({ project: req.params.id });
   await DailyLog.deleteMany({ project: req.params.id });
+  await TowerEvent.deleteMany({ project: req.params.id });
   await Project.findByIdAndDelete(req.params.id);
   res.json({ ok: true });
 });
@@ -365,6 +368,7 @@ router.post('/projects/:id/reset-data', async (req, res) => {
     }
   );
   await DailyLog.deleteMany({ project: req.params.id });
+  await TowerEvent.deleteMany({ project: req.params.id });
   notifyProjectUpdate(req.params.id);
   res.json({ ok: true });
 });
@@ -430,18 +434,39 @@ router.post('/projects/:id/data-update', async (req, res) => {
     const when = date ? new Date(date) : new Date();
     const attributeTo = pilotId || req.user._id;
 
+    // Same overlap issue as the pilot endpoint: only stamp a fresh date the
+    // day a tower actually transitions to done, or re-saving an overlapping
+    // range re-dates old work to today and collapses the Daily Activity
+    // history into a single day.
+    const existing = await Tower.find({
+      project: projectId,
+      number: { $in: rows.map((r) => String(r.number)) },
+    }).select('number captured uploaded').lean();
+    const prevMap = new Map(existing.map((t) => [t.number, t]));
+
+    const reverts = collectReverts(rows, prevMap);
+    if (reverts.missingReason.length) {
+      return res.status(400).json({
+        error: `A reason is required to un-mark already-completed work (tower ${reverts.missingReason.join(', ')}).`,
+        needsRevertReason: reverts.missingReason,
+      });
+    }
+
+    const events = [];
     const ops = rows.map((row) => {
+      const prev = prevMap.get(String(row.number));
       const set = {
         captured: !!row.dataCapture,
         uploaded: !!row.dataUpload,
         issueReplace: !!row.issueReplace,
       };
-      if (row.dataCapture) { set.capturedAt = when; set.capturedBy = attributeTo; }
+      if (row.dataCapture) { if (!prev?.captured) { set.capturedAt = when; set.capturedBy = attributeTo; } }
       else { set.capturedAt = null; }
-      if (row.dataUpload) { set.uploadedAt = when; set.uploadedBy = attributeTo; }
+      if (row.dataUpload) { if (!prev?.uploaded) { set.uploadedAt = when; set.uploadedBy = attributeTo; } }
       else { set.uploadedAt = null; }
       if (row.issueReplace && row.issueNote) { set.notes = String(row.issueNote).trim(); }
       else if (!row.issueReplace) { set.notes = ''; }
+      events.push(...towerEventsFor(row, prev, { projectId, when, pilot: attributeTo }));
       return {
         updateOne: {
           filter: { project: projectId, number: String(row.number) },
@@ -452,6 +477,7 @@ router.post('/projects/:id/data-update', async (req, res) => {
     });
 
     if (ops.length) await Tower.bulkWrite(ops);
+    if (events.length) await TowerEvent.insertMany(events);
     notifyProjectUpdate(projectId);
     res.json({ updated: ops.length });
   } catch (err) {
@@ -463,14 +489,23 @@ router.post('/projects/:id/data-update', async (req, res) => {
 // Upsert a single tower (admin manual edit, incl. lat/lng for the map).
 router.put('/towers/:projectId/:number', async (req, res) => {
   const { captured, uploaded, issueReplace, lat, lng, notes } = req.body || {};
+  const existing = await Tower.findOne(
+    { project: req.params.projectId, number: req.params.number }
+  ).select('captured uploaded').lean();
+
+  const now = new Date();
   const set = {};
   if (captured != null) {
     set.captured = captured;
-    set.capturedAt = captured ? new Date() : null;
+    // Preserve the original date if it was already captured — only a real
+    // false -> true transition (or an explicit uncheck) should touch it.
+    if (captured) { if (!existing?.captured) set.capturedAt = now; }
+    else { set.capturedAt = null; }
   }
   if (uploaded != null) {
     set.uploaded = uploaded;
-    set.uploadedAt = uploaded ? new Date() : null;
+    if (uploaded) { if (!existing?.uploaded) set.uploadedAt = now; }
+    else { set.uploadedAt = null; }
   }
   if (issueReplace != null) set.issueReplace = issueReplace;
   if (lat != null) set.lat = lat;
@@ -482,6 +517,14 @@ router.put('/towers/:projectId/:number', async (req, res) => {
     { $set: set },
     { new: true, upsert: true }
   );
+
+  const events = towerEventsFor(
+    { number: req.params.number, dataCapture: set.captured, dataUpload: set.uploaded },
+    existing,
+    { projectId: req.params.projectId, when: now, pilot: req.user._id }
+  ).filter((e) => (e.action === 'capture' ? captured != null : uploaded != null));
+  if (events.length) await TowerEvent.insertMany(events);
+
   notifyProjectUpdate(req.params.projectId);
   res.json({ tower });
 });
@@ -494,11 +537,35 @@ router.get('/dashboard/:projectId', async (req, res) => {
   res.json(data);
 });
 
+// Field logs = start/end/non-working entries plus any already-done tower that
+// was later un-marked, so the reason for a reversal is auditable next to the
+// day's work it changed.
 router.get('/projects/:id/logs', async (req, res) => {
-  const logs = await DailyLog.find({ project: req.params.id })
-    .populate('pilot', 'name loginId')
-    .sort({ date: -1 })
-    .lean();
+  const [dayLogs, revertLogs] = await Promise.all([
+    DailyLog.find({ project: req.params.id })
+      .populate('pilot', 'name loginId')
+      .sort({ date: -1 })
+      .lean(),
+    TowerEvent.find({ project: req.params.id, effect: 'revert' })
+      .populate('pilot', 'name loginId')
+      .sort({ date: -1 })
+      .lean(),
+  ]);
+
+  const logs = [
+    ...dayLogs,
+    ...revertLogs.map((e) => ({
+      _id: e._id,
+      type: 'undo',
+      action: e.action,
+      date: e.date,
+      towerNo: e.number,
+      note: e.note || '',
+      pilot: e.pilot,
+      createdAt: e.createdAt,
+    })),
+  ].sort((a, b) => new Date(b.date) - new Date(a.date));
+
   res.json({ logs });
 });
 

@@ -2,10 +2,12 @@ import { Router } from 'express';
 import Project from '../models/Project.js';
 import Tower from '../models/Tower.js';
 import DailyLog from '../models/DailyLog.js';
+import TowerEvent from '../models/TowerEvent.js';
 import User from '../models/User.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { uploadImage } from '../services/cloudinary.js';
 import { notifyProjectUpdate, broadcastOnMutation } from '../services/socket.js';
+import { collectReverts, towerEventsFor } from '../services/towerEvents.js';
 
 const router = Router();
 router.use(requireAuth, requireRole('pilot'));
@@ -288,18 +290,40 @@ router.post('/data-update', async (req, res) => {
     const when = date ? new Date(date) : new Date();
     const attributeTo = pilotId || req.user._id;
 
+    // A pilot's range often overlaps towers already captured/uploaded on an
+    // earlier day. Only stamp a fresh date on the day a tower actually
+    // transitions to done — otherwise re-submitting an overlapping range
+    // keeps re-dating old work to today, which collapses the whole history
+    // into the latest save (breaks the Daily Activity chart).
+    const existing = await Tower.find({
+      project: projectId,
+      number: { $in: rows.map((r) => String(r.number)) },
+    }).select('number captured uploaded').lean();
+    const prevMap = new Map(existing.map((t) => [t.number, t]));
+
+    const reverts = collectReverts(rows, prevMap);
+    if (reverts.missingReason.length) {
+      return res.status(400).json({
+        error: `A reason is required to un-mark already-completed work (tower ${reverts.missingReason.join(', ')}).`,
+        needsRevertReason: reverts.missingReason,
+      });
+    }
+
+    const events = [];
     const ops = rows.map((row) => {
+      const prev = prevMap.get(String(row.number));
       const set = {
         captured: !!row.dataCapture,
         uploaded: !!row.dataUpload,
         issueReplace: !!row.issueReplace,
       };
-      if (row.dataCapture) { set.capturedAt = when; set.capturedBy = attributeTo; }
+      if (row.dataCapture) { if (!prev?.captured) { set.capturedAt = when; set.capturedBy = attributeTo; } }
       else { set.capturedAt = null; }
-      if (row.dataUpload) { set.uploadedAt = when; set.uploadedBy = attributeTo; }
+      if (row.dataUpload) { if (!prev?.uploaded) { set.uploadedAt = when; set.uploadedBy = attributeTo; } }
       else { set.uploadedAt = null; }
       if (row.issueReplace && row.issueNote) { set.notes = String(row.issueNote).trim(); }
       else if (!row.issueReplace) { set.notes = ''; }
+      events.push(...towerEventsFor(row, prev, { projectId, when, pilot: attributeTo }));
       return {
         updateOne: {
           filter: { project: projectId, number: String(row.number) },
@@ -310,6 +334,7 @@ router.post('/data-update', async (req, res) => {
     });
 
     if (ops.length) await Tower.bulkWrite(ops);
+    if (events.length) await TowerEvent.insertMany(events);
     notify(projectId);
     res.json({ updated: ops.length });
   } catch (err) {

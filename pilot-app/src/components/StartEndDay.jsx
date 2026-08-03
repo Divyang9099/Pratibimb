@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { useProjectLive } from '../useProjectLive';
 
-const today = () => new Date().toISOString().slice(0, 10);
+// Local calendar date, not UTC. toISOString() would hand back yesterday for
+// anyone east of Greenwich before their UTC offset has elapsed — in IST that
+// is every dawn flight logged before 05:30.
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 function fmtTime(iso) {
   if (!iso) return '';
@@ -20,6 +26,10 @@ async function fileToDataUri(file) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('unreadable image'));
+    };
     img.onload = () => {
       URL.revokeObjectURL(url);
       const MAX = 1200;
@@ -34,7 +44,6 @@ async function fileToDataUri(file) {
       canvas.getContext('2d').drawImage(img, 0, 0, width, height);
       resolve(canvas.toDataURL('image/jpeg', 0.82));
     };
-    img.onerror = reject;
     img.src = url;
   });
 }
@@ -310,7 +319,17 @@ export default function StartEndDay({ mode, projects, projectId, onProjectChange
                 capture="environment"
                 onChange={async (e) => {
                   const f = e.target.files?.[0];
-                  if (f) setImage(await fileToDataUri(f));
+                  if (!f) return;
+                  try {
+                    setImage(await fileToDataUri(f));
+                    setMsg(null);
+                  } catch {
+                    // Formats the browser can't decode (HEIC on some Androids)
+                    // used to fail silently, leaving the pilot staring at an
+                    // empty photo field with no idea why.
+                    setImage('');
+                    setMsg({ type: 'err', text: "Couldn't read that image. Try taking the photo again, or pick a JPG/PNG." });
+                  }
                 }}
               />
             </>

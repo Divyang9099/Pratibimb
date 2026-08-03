@@ -8,7 +8,8 @@ import NonWorkingDays from './NonWorkingDays.jsx';
 
 export default function Dashboard({ data, projectId, accessKey }) {
   const hasNonWorking = (data.nonWorkingDays && data.nonWorkingDays.length > 0) ||
-                        (data.towerIssues && data.towerIssues.length > 0);
+                        (data.towerIssues && data.towerIssues.length > 0) ||
+                        (data.reverts && data.reverts.length > 0);
 
   return (
     <div className="dashboard">
@@ -32,7 +33,11 @@ export default function Dashboard({ data, projectId, accessKey }) {
       {/* Non-working days + field photos — full width */}
       {hasNonWorking && (
         <div style={{ marginTop: 16 }}>
-          <NonWorkingDays days={data.nonWorkingDays || []} issues={data.towerIssues || []} />
+          <NonWorkingDays
+            days={data.nonWorkingDays || []}
+            issues={data.towerIssues || []}
+            reverts={data.reverts || []}
+          />
         </div>
       )}
 
