@@ -30,12 +30,17 @@ export async function buildDashboard(projectId) {
     return String(a.number).localeCompare(String(b.number), undefined, { numeric: true });
   });
 
-  // Towers dropped by a later KML revision keep their history but must not
-  // count toward progress. `inKml !== false` (rather than `=== true`) so
-  // docs predating the field are still treated as active.
-  const activeTowers = towers.filter((t) => t.inKml !== false);
+  // Towers dropped by a later KML revision, or manually excluded by an admin
+  // (a KML point that isn't actually a tower — a junction, substation, etc.),
+  // keep their history but must not count toward progress. `inKml !== false`
+  // (rather than `=== true`) so docs predating the field are still active.
+  const activeTowers = towers.filter((t) => t.inKml !== false && !t.excluded);
 
-  const total = project.totalTowers || activeTowers.length;
+  // project.totalTowers is a snapshot of the raw KML point count at the last
+  // upload/sync, which includes any manually-excluded point — subtract those
+  // so "Total Towers" reflects real towers, not raw KML placemarks.
+  const excludedCount = towers.filter((t) => t.inKml !== false && t.excluded).length;
+  const total = (project.totalTowers || activeTowers.length) - excludedCount;
   const captured = activeTowers.filter((t) => t.captured);
   const uploaded = activeTowers.filter((t) => t.uploaded);
 
@@ -113,14 +118,13 @@ export async function buildDashboard(projectId) {
   const bump = (dateVal, field, towerNum) => {
     if (!dateVal) return;
     const k = dayKey(dateVal);
-    if (!dailyMap.has(k)) dailyMap.set(k, { date: k, captured: 0, uploaded: 0, towerMin: Infinity, towerMax: -Infinity, nonWorking: false });
+    if (!dailyMap.has(k)) {
+      dailyMap.set(k, { date: k, captured: 0, uploaded: 0, capturedNumbers: [], uploadedNumbers: [], nonWorking: false });
+    }
     const entry = dailyMap.get(k);
     entry[field] += 1;
     const n = parseInt(towerNum, 10);
-    if (!isNaN(n)) {
-      if (n < entry.towerMin) entry.towerMin = n;
-      if (n > entry.towerMax) entry.towerMax = n;
-    }
+    if (!isNaN(n)) entry[`${field}Numbers`].push(n);
   };
   const captureDate = (t) => lastDone.capture.get(t.number) || t.capturedAt;
   const uploadDate = (t) => lastDone.upload.get(t.number) || t.uploadedAt;
@@ -131,7 +135,7 @@ export async function buildDashboard(projectId) {
   nonWorkingLogs.forEach((l) => {
     const k = dayKey(l.date);
     if (!dailyMap.has(k)) {
-      dailyMap.set(k, { date: k, captured: 0, uploaded: 0, towerMin: Infinity, towerMax: -Infinity, nonWorking: true, nonWorkingNote: l.note || '' });
+      dailyMap.set(k, { date: k, captured: 0, uploaded: 0, capturedNumbers: [], uploadedNumbers: [], nonWorking: true, nonWorkingNote: l.note || '' });
     } else {
       dailyMap.get(k).nonWorking = true;
     }
@@ -142,16 +146,43 @@ export async function buildDashboard(projectId) {
     return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
   };
 
+  // "3,4,6,7,8" -> "3-4, 6-8" — groups consecutive tower numbers so the
+  // tooltip shows the real towers instead of a min-max span that swallows
+  // gaps (e.g. captured 2 & 5 on the same day used to render as "Towers 2-5",
+  // implying 3 and 4 were done too).
+  const compactRanges = (nums) => {
+    const sorted = [...new Set(nums)].sort((a, b) => a - b);
+    if (!sorted.length) return '';
+    const parts = [];
+    let start = sorted[0];
+    let prev = sorted[0];
+    for (let i = 1; i < sorted.length; i += 1) {
+      const n = sorted[i];
+      if (n === prev + 1) { prev = n; continue; }
+      parts.push(start === prev ? `${start}` : `${start}-${prev}`);
+      start = n; prev = n;
+    }
+    parts.push(start === prev ? `${start}` : `${start}-${prev}`);
+    return parts.join(', ');
+  };
+
   const dailyActivity = [...dailyMap.values()]
     .sort((a, b) => a.date.localeCompare(b.date))
-    .map((d) => ({
-      ...d,
-      towerLabel: d.nonWorking
-        ? `Off ${fmtShort(d.date)}`
-        : d.towerMin !== Infinity
-          ? d.towerMin === d.towerMax ? `T${d.towerMin}` : `T${d.towerMin}–T${d.towerMax}`
-          : d.date,
-    }));
+    .map((d) => {
+      const merged = [...d.capturedNumbers, ...d.uploadedNumbers];
+      const min = merged.length ? Math.min(...merged) : null;
+      const max = merged.length ? Math.max(...merged) : null;
+      return {
+        ...d,
+        towerLabel: d.nonWorking
+          ? `Off ${fmtShort(d.date)}`
+          : min != null
+            ? min === max ? `T${min}` : `T${min}–T${max}`
+            : d.date,
+        capturedTowerLabel: compactRanges(d.capturedNumbers),
+        uploadedTowerLabel: compactRanges(d.uploadedNumbers),
+      };
+    });
 
   // ---- Cumulative communication chart (capture solid vs upload dashed) ----
   let cumCap = 0;
@@ -207,6 +238,7 @@ export async function buildDashboard(projectId) {
     },
     towers: towers.map((t) => {
       const stale = t.inKml === false;
+      const excluded = !!t.excluded;
       return {
         id: t._id,
         number: t.number,
@@ -215,10 +247,12 @@ export async function buildDashboard(projectId) {
         captured: t.captured,
         uploaded: t.uploaded,
         issueReplace: t.issueReplace,
-        // Towers no longer on the line render grey rather than disappearing,
-        // so a shortened KML doesn't look like data went missing.
-        stale,
-        status: stale ? 'grey' : t.captured && t.uploaded ? 'green' : t.captured ? 'yellow' : 'red',
+        // Towers no longer on the line, or manually excluded by an admin as
+        // not a real tower, render grey rather than disappearing, so neither
+        // case looks like data went missing.
+        stale: stale || excluded,
+        excluded,
+        status: stale || excluded ? 'grey' : t.captured && t.uploaded ? 'green' : t.captured ? 'yellow' : 'red',
       };
     }),
     dailyActivity,

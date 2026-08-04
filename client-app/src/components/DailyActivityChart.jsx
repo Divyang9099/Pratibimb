@@ -33,23 +33,27 @@ function CustomTooltip({ active, payload }) {
     );
   }
 
-  // towerMin/towerMax come through as numbers (or null for empty days).
-  const towerRange =
-    entry?.towerMin != null
-      ? entry.towerMin === entry.towerMax
-        ? `Tower ${entry.towerMin}`
-        : `Towers ${entry.towerMin}–${entry.towerMax}`
-      : null;
+  // capturedTowerLabel/uploadedTowerLabel are pre-grouped ranges like
+  // "3-4, 6-8" — real tower numbers for that stat, not a combined min-max
+  // span that would swallow towers touched by the other action only.
+  const towersFor = (dataKey) => {
+    const label = dataKey === 'captured' ? entry?.capturedTowerLabel : entry?.uploadedTowerLabel;
+    if (!label) return '';
+    return label.split(', ').map((part) => `T${part}`).join(', ');
+  };
 
   return (
     <div className="chart-tooltip">
       <p className="chart-tooltip-label">{dateLabel}</p>
-      {towerRange && <p style={{ color: '#64748b', margin: '0 0 2px', fontSize: 12 }}>{towerRange}</p>}
-      {payload.map((p) => (
-        <p key={p.dataKey} style={{ color: p.color, margin: '2px 0 0', fontSize: 13 }}>
-          {p.name}: {p.value}
-        </p>
-      ))}
+      {payload.map((p) => {
+        const towers = towersFor(p.dataKey);
+        return (
+          <p key={p.dataKey} style={{ color: p.color, margin: '2px 0 0', fontSize: 13 }}>
+            {p.name}: {p.value}
+            {towers && <span style={{ color: '#64748b', fontSize: 12 }}> ({towers})</span>}
+          </p>
+        );
+      })}
     </div>
   );
 }

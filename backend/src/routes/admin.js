@@ -488,7 +488,7 @@ router.post('/projects/:id/data-update', async (req, res) => {
 
 // Upsert a single tower (admin manual edit, incl. lat/lng for the map).
 router.put('/towers/:projectId/:number', async (req, res) => {
-  const { captured, uploaded, issueReplace, lat, lng, notes } = req.body || {};
+  const { captured, uploaded, issueReplace, lat, lng, notes, excluded } = req.body || {};
   const existing = await Tower.findOne(
     { project: req.params.projectId, number: req.params.number }
   ).select('captured uploaded').lean();
@@ -511,6 +511,11 @@ router.put('/towers/:projectId/:number', async (req, res) => {
   if (lat != null) set.lat = lat;
   if (lng != null) set.lng = lng;
   if (notes != null) set.notes = notes;
+  if (excluded != null) {
+    set.excluded = excluded;
+    set.excludedAt = excluded ? now : null;
+    set.excludedBy = excluded ? req.user._id : null;
+  }
 
   const tower = await Tower.findOneAndUpdate(
     { project: req.params.projectId, number: req.params.number },

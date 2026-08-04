@@ -73,7 +73,7 @@ export default function TowerMap({ towers, route = [] }) {
                 {t.issueReplace ? ' ⚠ issue' : ''}
                 <br />
                 {t.status === 'grey'
-                  ? 'Not on the current line'
+                  ? t.excluded ? 'Excluded (not a real tower)' : 'Not on the current line'
                   : t.status === 'green'
                   ? 'Captured & uploaded'
                   : t.status === 'yellow'

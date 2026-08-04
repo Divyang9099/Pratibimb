@@ -153,6 +153,29 @@ export default function ProjectDetail({ projectId, onBack }) {
     loadAll();
   }
 
+  // A KML point that isn't actually a tower (a junction, substation, stray
+  // reference marker the parser swept in because it has coordinates) needs a
+  // way to be dropped from the counts without renumbering every other tower
+  // or hand-editing the KML. This is independent of the daily capture/upload
+  // edits above — it changes instantly, no Save step.
+  const [excludingNo, setExcludingNo] = useState(null);
+  async function toggleExcluded(tower) {
+    setExcludingNo(tower.number);
+    try {
+      await api.put(`/admin/towers/${projectId}/${tower.number}`, { excluded: !tower.excluded });
+      // Drop any unsaved capture/upload edit for this tower — excluding it
+      // mid-edit shouldn't leave a stale pending change to save later.
+      setEdits((prev) => {
+        if (!(tower.number in prev)) return prev;
+        const { [tower.number]: _drop, ...rest } = prev;
+        return rest;
+      });
+      await loadAll();
+    } finally {
+      setExcludingNo(null);
+    }
+  }
+
   async function deleteProject() {
     if (!confirm('Delete this entire project, its towers and logs?')) return;
     await api.delete(`/admin/projects/${projectId}`);
@@ -266,22 +289,42 @@ export default function ProjectDetail({ projectId, onBack }) {
                   <th>Capture</th>
                   <th>Upload</th>
                   <th>Issue</th>
+                  <th>On Line</th>
                 </tr>
               </thead>
               <tbody>
                 {towers.map((t) => {
                   const changed = !!edits[t.number];
+                  const stale = t.inKml === false;
                   return (
-                    <tr key={t._id} className={changed ? 'row-dirty' : undefined}>
+                    <tr
+                      key={t._id}
+                      className={[changed && 'row-dirty', t.excluded && 'row-excluded'].filter(Boolean).join(' ') || undefined}
+                    >
                       <td>{t.number}</td>
                       <td>
-                        <input type="checkbox" checked={valueOf(t, 'captured')} onChange={() => toggle(t, 'captured')} />
+                        <input type="checkbox" checked={valueOf(t, 'captured')} onChange={() => toggle(t, 'captured')} disabled={t.excluded} />
                       </td>
                       <td>
-                        <input type="checkbox" checked={valueOf(t, 'uploaded')} onChange={() => toggle(t, 'uploaded')} />
+                        <input type="checkbox" checked={valueOf(t, 'uploaded')} onChange={() => toggle(t, 'uploaded')} disabled={t.excluded} />
                       </td>
                       <td>
-                        <input type="checkbox" checked={valueOf(t, 'issueReplace')} onChange={() => toggle(t, 'issueReplace')} />
+                        <input type="checkbox" checked={valueOf(t, 'issueReplace')} onChange={() => toggle(t, 'issueReplace')} disabled={t.excluded} />
+                      </td>
+                      <td>
+                        {stale ? (
+                          <span className="muted" style={{ fontSize: 12 }}>dropped by KML</span>
+                        ) : (
+                          <button
+                            type="button"
+                            className={t.excluded ? 'secondary' : 'ghost'}
+                            style={{ fontSize: 11, padding: '3px 8px' }}
+                            onClick={() => toggleExcluded(t)}
+                            disabled={excludingNo === t.number}
+                          >
+                            {excludingNo === t.number ? '…' : t.excluded ? 'Excluded — Include' : 'Exclude'}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );

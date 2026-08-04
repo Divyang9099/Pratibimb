@@ -20,6 +20,17 @@ const towerSchema = new mongoose.Schema(
     // back to true and the old history comes with it.
     inKml: { type: Boolean, default: true },
 
+    // Admin-only manual override for a KML point that isn't actually a real
+    // tower (a junction, substation or reference marker the KML parser swept
+    // in because it has coordinates). Deliberately separate from `inKml`:
+    // re-syncing or re-uploading the same KML rewrites `inKml` for every
+    // number it contains, which would silently undo this if it shared the
+    // field. Excluded towers drop out of the progress counts exactly like a
+    // stale `inKml: false` tower, but stay excluded across KML re-syncs.
+    excluded: { type: Boolean, default: false },
+    excludedAt: { type: Date },
+    excludedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+
     captured: { type: Boolean, default: false },
     capturedAt: { type: Date },
     capturedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

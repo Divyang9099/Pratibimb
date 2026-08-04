@@ -607,6 +607,7 @@ tr.editing { background: #f8fafc; }
 
 /* ---- Soft-select save bar (towers table) ---- */
 .grid.compact tr.row-dirty td { background: #eff6ff; }
+.grid.compact tr.row-excluded td { background: #f1f5f9; color: #94a3b8; }
 .save-bar {
   position: fixed;
   left: 50%;
