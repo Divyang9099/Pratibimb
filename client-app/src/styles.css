@@ -282,6 +282,7 @@ button:disabled { opacity: .5; cursor: default; transform: none !important; }
 .acq-tag.start { background: var(--green); }
 .acq-tag.close { background: var(--accent); }
 .acq-tower { margin-left: auto; font-weight: 700; font-size: 13px; }
+.acq-in-progress { color: var(--yellow); font-weight: 600; }
 
 /* ---- Panels and grid ---- */
 .grid-2 {

@@ -51,8 +51,14 @@ export default function KpiCards({ kpi }) {
         </div>
         <div className="acq-row">
           <span className="acq-tag close">Close</span>
-          <span>{fmtDate(acquisition.close?.date)} (PM)</span>
-          <span className="acq-tower">Tower {acquisition.close?.towerNo ?? '—'}</span>
+          {acquisition.inProgress ? (
+            <span className="acq-in-progress">In progress — not ended yet</span>
+          ) : (
+            <>
+              <span>{fmtDate(acquisition.close?.date)} (PM)</span>
+              <span className="acq-tower">Tower {acquisition.close?.towerNo ?? '—'}</span>
+            </>
+          )}
         </div>
       </div>
     </div>

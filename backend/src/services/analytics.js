@@ -49,13 +49,27 @@ export async function buildDashboard(projectId) {
 
   const pct = (done) => (total > 0 ? Math.round((done / total) * 1000) / 10 : 0);
 
-  // ---- Acquisition KPI (latest start / latest end) ----
+  // ---- Acquisition KPI (latest start, and its matching end if closed) ----
+  // The end log must belong to the same calendar day as the latest start —
+  // otherwise an in-progress session (started today, not yet ended) would
+  // pair today's Start with an earlier day's Close, which reads as the
+  // close happening before the start.
   const latestStart = await DailyLog.findOne({ project: projectId, type: 'start' })
     .sort({ date: -1 })
     .lean();
-  const latestEnd = await DailyLog.findOne({ project: projectId, type: 'end' })
-    .sort({ date: -1 })
-    .lean();
+  let latestEnd = null;
+  if (latestStart) {
+    const dayStart = new Date(latestStart.date);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = addDays(dayStart, 1);
+    latestEnd = await DailyLog.findOne({
+      project: projectId,
+      type: 'end',
+      date: { $gte: dayStart, $lt: dayEnd },
+    })
+      .sort({ date: -1 })
+      .lean();
+  }
 
   // ---- Tower issues (issueReplace with a note) ----
   // `number` is a String, so a Mongo sort would order it lexicographically
@@ -234,6 +248,10 @@ export async function buildDashboard(projectId) {
           ? { date: latestStart.date, towerNo: latestStart.towerNo }
           : null,
         close: latestEnd ? { date: latestEnd.date, towerNo: latestEnd.towerNo } : null,
+        // Started today's (or the latest) session but hasn't logged End Day
+        // for it yet — the client UI should say so instead of showing a
+        // stale earlier close next to it.
+        inProgress: !!latestStart && !latestEnd,
       },
     },
     towers: towers.map((t) => {
