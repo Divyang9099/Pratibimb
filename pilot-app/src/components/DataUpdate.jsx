@@ -273,6 +273,7 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
     setMsg(null);
   }
 
+  const selectedProject = projects.find(p => p._id === projectId);
   const alreadyCapturedCount = rows ? rows.filter(r => r.alreadyCaptured).length : 0;
   const checkboxCols = [
     { field: 'dataCapture', label: 'Data Capture' },
@@ -318,6 +319,12 @@ export default function DataUpdate({ user, projects, projectId, onProjectChange 
           Load table
         </button>
       </div>
+
+      {selectedProject?.towerRange && (
+        <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748b' }}>
+          This project's towers run from {selectedProject.towerRange.min} to {selectedProject.towerRange.max}.
+        </p>
+      )}
 
       {msg && <div className={msg.type === 'ok' ? 'ok' : 'error'}>{msg.text}</div>}
 

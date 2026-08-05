@@ -7,7 +7,7 @@ import User from '../models/User.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { uploadImage } from '../services/cloudinary.js';
 import { notifyProjectUpdate, broadcastOnMutation } from '../services/socket.js';
-import { collectReverts, towerEventsFor } from '../services/towerEvents.js';
+import { collectReverts, towerEventsFor, activeTowerRanges } from '../services/towerEvents.js';
 
 const router = Router();
 router.use(requireAuth, requireRole('pilot'));
@@ -45,7 +45,10 @@ router.get('/projects', async (req, res) => {
       .select('name totalTowers client requirePhoto')
       .sort({ createdAt: -1 })
       .lean();
-    res.json({ projects });
+    const ranges = await activeTowerRanges(projects.map((p) => p._id));
+    res.json({
+      projects: projects.map((p) => ({ ...p, towerRange: ranges.get(String(p._id)) || null })),
+    });
   } catch (err) {
     console.error('GET /projects error:', err);
     res.status(500).json({ error: 'Failed to load projects' });
@@ -255,6 +258,14 @@ router.get('/towers/:projectId', async (req, res) => {
       return res.status(400).json({ error: 'Range too large (max 1000 towers)' });
     }
 
+    const range = (await activeTowerRanges([projectId])).get(String(projectId));
+    if (range && (from < range.min || to > range.max)) {
+      return res.status(400).json({
+        error: `This project's towers run from ${range.min} to ${range.max}. Enter a range within that.`,
+        towerRange: range,
+      });
+    }
+
     const existing = await Tower.find({
       project: projectId,
       number: { $in: Array.from({ length: to - from + 1 }, (_, i) => String(from + i)) },
@@ -289,6 +300,22 @@ router.post('/data-update', async (req, res) => {
     }
     const when = date ? new Date(date) : new Date();
     const attributeTo = pilotId || req.user._id;
+
+    // Belt-and-braces: the range picker already rejects an out-of-KML range,
+    // but this is the endpoint that actually upserts Tower docs, so it's the
+    // one that must not create/revive a number the KML doesn't have.
+    const range = (await activeTowerRanges([projectId])).get(String(projectId));
+    if (range) {
+      const outOfRange = rows.filter((r) => {
+        const n = parseInt(r.number, 10);
+        return Number.isNaN(n) || n < range.min || n > range.max;
+      });
+      if (outOfRange.length) {
+        return res.status(400).json({
+          error: `Tower ${outOfRange.map((r) => r.number).join(', ')} ${outOfRange.length > 1 ? 'are' : 'is'} outside this project's tower range (${range.min}-${range.max}).`,
+        });
+      }
+    }
 
     // A pilot's range often overlaps towers already captured/uploaded on an
     // earlier day. Only stamp a fresh date on the day a tower actually
