@@ -115,7 +115,15 @@ export async function buildDashboard(projectId) {
   events.forEach((e) => { lastDone[e.action].set(e.number, e.date); });
 
   // ---- Reverted work (already-done towers later un-marked, with reason) ----
-  const revertLogs = await TowerEvent.find({ project: projectId, effect: 'revert' })
+  // Scoped to towers still on the current route — same reasoning as the
+  // Tower Issues query below: a tower a later KML re-sync dropped (or an
+  // admin excluded as not a real tower) shouldn't keep surfacing its old
+  // correction history to the client forever.
+  const revertLogs = await TowerEvent.find({
+    project: projectId,
+    effect: 'revert',
+    number: { $in: activeTowers.map((t) => t.number) },
+  })
     .populate('pilot', 'name')
     .sort({ date: -1, createdAt: -1 })
     .lean();
