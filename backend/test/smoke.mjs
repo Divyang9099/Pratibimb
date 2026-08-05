@@ -111,6 +111,26 @@ try {
   const dash2 = await (await get(`/client/dashboard/${project._id}?key=TWR-DEMO1234`)).json();
   check('dashboard capture done now 8', dash2.kpi.capture.done === 8);
 
+  // Correcting a tower back to an *earlier* day has to move it on the Daily
+  // Activity chart. Mirrors a real incident: tower flown on the 4th but logged
+  // on the 5th together with its upload, then the capture corrected to the 4th.
+  // Replaying events by date instead of by record order let the cancelled 5 Aug
+  // event outrank the correction, so the chart never moved.
+  const t9 = { number: '9', dataCapture: true, dataUpload: true, issueReplace: false };
+  const dataUpdate = (date, rows) =>
+    post('/pilot/data-update', { projectId: project._id, date, rows }, pilotLogin.token);
+  await dataUpdate('2026-08-05', [t9]);
+  await dataUpdate('2026-08-05', [{ ...t9, dataCapture: false, captureRevertNote: 'flown on the 4th' }]);
+  await dataUpdate('2026-08-04', [t9]);
+
+  const dash3 = await (await get(`/client/dashboard/${project._id}?key=TWR-DEMO1234`)).json();
+  const activityOn = (date, field) =>
+    dash3.dailyActivity.find((d) => d.date === date)?.[`${field}Numbers`] || [];
+  check('corrected capture moves to 4 Aug', activityOn('2026-08-04', 'captured').includes(9));
+  check('corrected capture leaves 5 Aug', !activityOn('2026-08-05', 'captured').includes(9));
+  check('untouched upload stays on 5 Aug', activityOn('2026-08-05', 'uploaded').includes(9));
+  check('corrected tower counted once', dash3.kpi.capture.done === 9);
+
   // Pilot cannot hit admin route
   check('pilot blocked from admin route', (await get('/admin/clients', pilotLogin.token)).status === 403);
 

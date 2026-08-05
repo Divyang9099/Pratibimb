@@ -107,12 +107,23 @@ export async function buildDashboard(projectId) {
   // Dates come from the immutable event log so a later save can't re-date
   // earlier work. Towers completed before the event log existed fall back to
   // their Tower.capturedAt/uploadedAt stamp.
-  const events = await TowerEvent.find({ project: projectId, effect: 'done' })
-    .sort({ date: 1 })
-    .select('number action date')
+  //
+  // Replayed in the order the events were *recorded* (createdAt, then _id to
+  // break ties inside one insertMany batch) — not in date order. A pilot
+  // correcting a tower to an earlier day writes a revert followed by a `done`
+  // at the older date; ordering by `date` would let the cancelled newer event
+  // win and the correction would never reach the chart. Reverts have to be
+  // replayed too, for the same reason: dropping them leaves the event they
+  // cancelled standing.
+  const events = await TowerEvent.find({ project: projectId })
+    .sort({ createdAt: 1, _id: 1 })
+    .select('number action date effect')
     .lean();
   const lastDone = { capture: new Map(), upload: new Map() };
-  events.forEach((e) => { lastDone[e.action].set(e.number, e.date); });
+  events.forEach((e) => {
+    if (e.effect === 'done') lastDone[e.action].set(e.number, e.date);
+    else lastDone[e.action].delete(e.number);
+  });
 
   // ---- Reverted work (already-done towers later un-marked, with reason) ----
   // Scoped to towers still on the current route — same reasoning as the
