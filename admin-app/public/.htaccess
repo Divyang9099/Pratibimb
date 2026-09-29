@@ -22,4 +22,4 @@ RewriteRule ^ index.html [QSA,L]
 </FilesMatch>
 
 Header always unset Content-Security-Policy
-Header always set Content-Security-Policy "default-src 'self'; connect-src 'self' https://pratibimb.varunaat.in wss://pratibimb.varunaat.in https://res.cloudinary.com; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; worker-src blob:;"
+Header always set Content-Security-Policy "default-src 'self'; connect-src 'self' https://pratibimb.varunaat.in wss://pratibimb.varunaat.in https://16-4-15-91.sslip.io wss://16-4-15-91.sslip.io https://res.cloudinary.com; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; worker-src blob:;"
